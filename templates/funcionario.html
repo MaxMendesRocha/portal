@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}{{ nome }} - Portal de Horas{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h3 class="mb-0">
+                            <i class="fas fa-user-circle me-2"></i>{{ nome }}
+                        </h3>
+                    </div>
+                    <div class="col-auto">
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('registrar_horas') }}" class="btn btn-success btn-custom">
+                                <i class="fas fa-plus me-2"></i>Registrar Horas
+                            </a>
+                            <a href="{{ url_for('editar_funcionario', nome=nome) }}" class="btn btn-warning btn-custom">
+                                <i class="fas fa-user-edit me-2"></i>Editar Funcionário
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if funcionario_data %}
+                <div class="row">
+                    <div class="col-md-4">
+                        <p><strong><i class="fas fa-briefcase me-2"></i>Cargo:</strong> {{ funcionario_data.cargo }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <p><strong><i class="fas fa-dollar-sign me-2"></i>Salário:</strong> 
+                        {% if funcionario_data.salario_mensal %}
+                            R$ {{ "%.2f"|format(funcionario_data.salario_mensal) }}/mês
+                        {% else %}
+                            R$ {{ "%.2f"|format(funcionario_data.salario_hora * 200) }}/mês
+                        {% endif %}
+                        <br><small class="text-muted">R$ {{ "%.2f"|format(funcionario_data.salario_hora) }}/hora</small>
+                        {% if funcionario_data.desconto and funcionario_data.desconto > 0 %}
+                            <br><small class="text-warning"><i class="fas fa-minus-circle me-1"></i>Desconto: R$ {{ "%.2f"|format(funcionario_data.desconto) }}/mês</small>
+                        {% endif %}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <p><strong><i class="fas fa-calendar me-2"></i>Cadastrado:</strong> {{ funcionario_data.data_cadastro }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if totais_mensais %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h4 class="mb-3">
+            <i class="fas fa-chart-line text-primary me-2"></i>
+            Resumo Mensal
+        </h4>
+    </div>
+    {% for total in totais_mensais %}
+    <div class="col-lg-4 col-md-6 mb-3">
+        <div class="card stats-card text-white">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-calendar-alt me-2"></i>
+                    {{ total.mes }}/{{ total.ano }}
+                </h5>
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="mb-2">
+                            <i class="fas fa-clock"></i>
+                            <div class="small">Total Horas</div>
+                            <div class="h5">{{ "%.1f"|format(total.total_horas) }}h</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="mb-2">
+                            <i class="fas fa-plus-circle"></i>
+                            <div class="small">Extras</div>
+                            <div class="h5">{{ total.total_extras|horas_hm }}</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="mb-2">
+                            <i class="fas fa-calendar-check"></i>
+                            <div class="small">Dias</div>
+                            <div class="h5">{{ total.dias_trabalhados }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <a href="{{ url_for('relatorio_mensal', funcionario_nome=nome, mes=total.mes, ano=total.ano) }}" 
+                       class="btn btn-light btn-sm btn-custom">
+                        <i class="fas fa-eye me-1"></i>Ver Detalhes
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if registros %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Registros Recentes
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-calendar me-2"></i>Data</th>
+                                <th><i class="fas fa-sign-in-alt me-2"></i>Entrada</th>
+                                <th><i class="fas fa-utensils me-2"></i>Almoço</th>
+                                <th><i class="fas fa-sign-out-alt me-2"></i>Saída</th>
+                                <th><i class="fas fa-clock me-2"></i>Total</th>
+                                <th><i class="fas fa-plus-circle me-2"></i>Extras</th>
+                                <th><i class="fas fa-cog me-2"></i>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for registro in registros[:10] %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-light text-dark">
+                                        {{ registro.data }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="text-success">
+                                        <i class="fas fa-sign-in-alt me-1"></i>{{ registro.hora_entrada }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if registro.hora_saida_almoco %}
+                                    <small class="text-muted">
+                                        <i class="fas fa-utensils me-1"></i>{{ registro.hora_saida_almoco }} - {{ registro.hora_volta_almoco }}
+                                        <br><span class="badge bg-info">{{ "%.1f"|format(registro.tempo_almoco) }}h</span>
+                                    </small>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="text-danger">
+                                        <i class="fas fa-sign-out-alt me-1"></i>{{ registro.hora_saida }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <strong>{{ "%.2f"|format(registro.horas_trabalhadas) }}h</strong>
+                                </td>
+                                <td>
+                                    {% if registro.horas_extras > 0 %}
+                                        <span class="badge bg-warning">
+                                            {{ registro.horas_extras|horas_hm }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{{ url_for('editar_registro', registro_id=registro.id) }}" 
+                                           class="btn btn-outline-warning btn-sm" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if registros|length > 10 %}
+                <div class="text-center mt-3">
+                    <small class="text-muted">
+                        Mostrando os 10 registros mais recentes de {{ registros|length }} total
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info text-center" role="alert">
+            <i class="fas fa-info-circle fa-2x mb-3"></i>
+            <h4>Nenhum registro encontrado</h4>
+            <p>Este funcionário ainda não tem horas registradas.</p>
+            <a href="{{ url_for('registrar_horas') }}" class="btn btn-success btn-custom">
+                <i class="fas fa-plus me-2"></i>Registrar Primeiras Horas
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Paginação para registros -->
+{% if pagination and pagination.total_pages > 1 %}
+<nav aria-label="Paginação de registros" class="mt-4">
+    <ul class="pagination justify-content-center">
+        <!-- Primeira página -->
+        {% if pagination.page > 1 %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('visualizar_funcionario', nome=nome) }}">
+                <i class="fas fa-angle-double-left"></i>
+            </a>
+        </li>
+        {% endif %}
+        
+        <!-- Página anterior -->
+        {% if pagination.has_prev %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('visualizar_funcionario', nome=nome, page=pagination.prev_page) if pagination.prev_page > 1 else url_for('visualizar_funcionario', nome=nome) }}">
+                <i class="fas fa-angle-left"></i>
+            </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">
+                <i class="fas fa-angle-left"></i>
+            </span>
+        </li>
+        {% endif %}
+        
+        <!-- Números das páginas -->
+        {% set start_page = [pagination.page - 2, 1]|max %}
+        {% set end_page = [pagination.page + 2, pagination.total_pages]|min %}
+        
+        {% if start_page > 1 %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('visualizar_funcionario', nome=nome) }}">1</a>
+        </li>
+        {% if start_page > 2 %}
+        <li class="page-item disabled">
+            <span class="page-link">...</span>
+        </li>
+        {% endif %}
+        {% endif %}
+        
+        {% for page_num in range(start_page, end_page + 1) %}
+        <li class="page-item {{ 'active' if page_num == pagination.page else '' }}">
+            {% if page_num == pagination.page %}
+            <span class="page-link">{{ page_num }}</span>
+            {% else %}
+            <a class="page-link" href="{{ url_for('visualizar_funcionario', nome=nome, page=page_num) if page_num > 1 else url_for('visualizar_funcionario', nome=nome) }}">{{ page_num }}</a>
+            {% endif %}
+        </li>
+        {% endfor %}
+        
+        {% if end_page < pagination.total_pages %}
+        {% if end_page < pagination.total_pages - 1 %}
+        <li class="page-item disabled">
+            <span class="page-link">...</span>
+        </li>
+        {% endif %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('visualizar_funcionario', nome=nome, page=pagination.total_pages) }}">{{ pagination.total_pages }}</a>
+        </li>
+        {% endif %}
+        
+        <!-- Próxima página -->
+        {% if pagination.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('visualizar_funcionario', nome=nome, page=pagination.next_page) }}">
+                <i class="fas fa-angle-right"></i>
+            </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">
+                <i class="fas fa-angle-right"></i>
+            </span>
+        </li>
+        {% endif %}
+        
+        <!-- Última página -->
+        {% if pagination.page < pagination.total_pages %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('visualizar_funcionario', nome=nome, page=pagination.total_pages) }}">
+                <i class="fas fa-angle-double-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+    
+    <!-- Informações da paginação -->
+    <div class="text-center mt-3">
+        <small class="text-muted">
+            <i class="fas fa-info-circle me-1"></i>
+            Mostrando {{ (pagination.page - 1) * pagination.per_page + 1 }} - 
+            {{ [pagination.page * pagination.per_page, pagination.total]|min }} de 
+            {{ pagination.total }} registro{{ 's' if pagination.total != 1 else '' }}
+        </small>
+    </div>
+</nav>
+{% endif %}
+
+<div class="row mt-4">
+    <div class="col-12 text-center">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary btn-custom">
+            <i class="fas fa-arrow-left me-2"></i>Voltar ao Início
+        </a>
+    </div>
+</div>
+{% endblock %}

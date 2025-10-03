@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Registro - Portal de Horas{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10 col-lg-8">
+        <div class="card">
+            <div class="card-header bg-warning text-dark text-center">
+                <h3 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Editar Registro de Horas
+                </h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="editarRegistroForm">
+                    <div class="mb-3">
+                        <label for="funcionario" class="form-label">
+                            <i class="fas fa-user me-2"></i>Funcionário *
+                        </label>
+                        <select class="form-select" id="funcionario" name="funcionario" required>
+                            {% for nome in funcionarios.keys() %}
+                            <option value="{{ nome }}" {% if nome == registro.funcionario %}selected{% endif %}>{{ nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="data" class="form-label">
+                            <i class="fas fa-calendar me-2"></i>Data *
+                        </label>
+                        <input type="date" class="form-control" id="data" name="data" 
+                               value="{{ registro.data }}" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hora_entrada" class="form-label">
+                                    <i class="fas fa-sign-in-alt text-success me-2"></i>Hora de Entrada *
+                                </label>
+                                <input type="time" class="form-control" id="hora_entrada" name="hora_entrada" 
+                                       value="{{ registro.hora_entrada }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hora_saida_almoco" class="form-label">
+                                    <i class="fas fa-utensils text-warning me-2"></i>Saída para Almoço *
+                                </label>
+                                <input type="time" class="form-control" id="hora_saida_almoco" name="hora_saida_almoco" 
+                                       value="{{ registro.hora_saida_almoco }}" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hora_volta_almoco" class="form-label">
+                                    <i class="fas fa-arrow-left text-info me-2"></i>Volta do Almoço *
+                                </label>
+                                <input type="time" class="form-control" id="hora_volta_almoco" name="hora_volta_almoco" 
+                                       value="{{ registro.hora_volta_almoco }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hora_saida" class="form-label">
+                                    <i class="fas fa-sign-out-alt text-danger me-2"></i>Hora de Saída *
+                                </label>
+                                <input type="time" class="form-control" id="hora_saida" name="hora_saida" 
+                                       value="{{ registro.hora_saida }}" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert" id="previa" style="display: none;">
+                        <i class="fas fa-calculator me-2"></i>
+                        <strong>Prévia do Cálculo:</strong>
+                        <div id="resultado-previa"></div>
+                    </div>
+                    
+                    <div class="alert alert-warning" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Horário Padrão:</strong> 08:00 às 12:00 e 13:00 às 17:00 (8 horas)
+                        <br><strong>Horas Extras:</strong> Acima de 8 horas trabalhadas
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-warning btn-lg btn-custom">
+                            <i class="fas fa-save me-2"></i>Salvar Alterações
+                        </button>
+                        <a href="{{ url_for('visualizar_funcionario', nome=registro.funcionario_nome) }}" class="btn btn-secondary btn-custom">
+                            <i class="fas fa-arrow-left me-2"></i>Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação para Exclusão -->
+<div class="modal fade" id="confirmarExclusao" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir este registro?</p>
+                <p><strong>Esta ação não pode ser desfeita!</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="POST" action="{{ url_for('excluir_registro', registro_id=registro_id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-2"></i>Excluir
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-12 text-center">
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmarExclusao">
+            <i class="fas fa-trash me-2"></i>Excluir Registro
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const entradaInput = document.getElementById('hora_entrada');
+    const saidaAlmocoInput = document.getElementById('hora_saida_almoco');
+    const voltaAlmocoInput = document.getElementById('hora_volta_almoco');
+    const saidaInput = document.getElementById('hora_saida');
+    const previaDivs = document.getElementById('previa');
+    const resultadoDiv = document.getElementById('resultado-previa');
+    
+    function calcularPrevia() {
+        const entrada = entradaInput.value;
+        const saidaAlmoco = saidaAlmocoInput.value;
+        const voltaAlmoco = voltaAlmocoInput.value;
+        const saida = saidaInput.value;
+        
+        if (entrada && saidaAlmoco && voltaAlmoco && saida) {
+            const entradaDate = new Date(`2000-01-01 ${entrada}`);
+            const saidaAlmocoDate = new Date(`2000-01-01 ${saidaAlmoco}`);
+            const voltaAlmocoDate = new Date(`2000-01-01 ${voltaAlmoco}`);
+            const saidaDate = new Date(`2000-01-01 ${saida}`);
+            
+            if (saidaAlmocoDate > entradaDate && voltaAlmocoDate > saidaAlmocoDate && saidaDate > voltaAlmocoDate) {
+                // Calcular períodos de trabalho
+                const periodoManha = (saidaAlmocoDate - entradaDate) / 1000 / 60 / 60;
+                const periodoTarde = (saidaDate - voltaAlmocoDate) / 1000 / 60 / 60;
+                const totalTrabalhado = periodoManha + periodoTarde;
+                
+                // Calcular tempo de almoço
+                const tempoAlmoco = (voltaAlmocoDate - saidaAlmocoDate) / 1000 / 60 / 60;
+                
+                const horasExtras = Math.max(0, totalTrabalhado - 8);
+                const horasNormais = Math.min(totalTrabalhado, 8);
+                
+                resultadoDiv.innerHTML = `
+                    <div class="row text-center">
+                        <div class="col-3">
+                            <strong>Total: ${totalTrabalhado.toFixed(2)}h</strong>
+                        </div>
+                        <div class="col-3">
+                            <strong>Normais: ${horasNormais.toFixed(2)}h</strong>
+                        </div>
+                        <div class="col-3">
+                            <strong class="text-danger">Extras: ${horasExtras.toFixed(2)}h</strong>
+                        </div>
+                        <div class="col-3">
+                            <strong class="text-info">Almoço: ${tempoAlmoco.toFixed(2)}h</strong>
+                        </div>
+                    </div>
+                `;
+                previaDivs.style.display = 'block';
+            } else {
+                previaDivs.style.display = 'none';
+            }
+        } else {
+            previaDivs.style.display = 'none';
+        }
+    }
+    
+    // Calcular prévia inicial
+    calcularPrevia();
+    
+    entradaInput.addEventListener('change', calcularPrevia);
+    saidaAlmocoInput.addEventListener('change', calcularPrevia);
+    voltaAlmocoInput.addEventListener('change', calcularPrevia);
+    saidaInput.addEventListener('change', calcularPrevia);
+});
+</script>
+{% endblock %}

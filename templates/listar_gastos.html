@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Lista de Gastos{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Lista de Gastos
+                </h4>
+                <a href="{{ url_for('adicionar_gasto') }}" class="btn btn-light btn-sm">
+                    <i class="fas fa-plus me-1"></i>Novo Gasto
+                </a>
+            </div>
+            <div class="card-body">
+                {% if gastos %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Data</th>
+                                <th>Descrição</th>
+                                <th>Categoria</th>
+                                <th>Valor</th>
+                                <th>Forma de Pagamento</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for gasto in gastos %}
+                            <tr>
+                                <td>{{ gasto.data_formatada }}</td>
+                                <td>{{ gasto.descricao }}</td>
+                                <td>
+                                    <span class="badge bg-primary">{{ gasto.categoria }}</span>
+                                </td>
+                                <td class="text-end">
+                                    <strong>R$ {{ "%.2f"|format(gasto.valor) }}</strong>
+                                </td>
+                                <td>{{ gasto.forma_pagamento|title }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button class="btn btn-outline-primary" title="Editar" onclick="alert('Funcionalidade de edição em desenvolvimento!')">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger btn-excluir" title="Excluir" 
+                                                data-gasto-id="{{ gasto.id }}" 
+                                                data-gasto-descricao="{{ gasto.descricao }}" 
+                                                data-gasto-valor="{{ gasto.valor }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-receipt fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nenhum gasto registrado ainda</h5>
+                    <p class="text-muted mb-4">Comece adicionando seu primeiro gasto para controlar suas despesas</p>
+                    <a href="{{ url_for('adicionar_gasto') }}" class="btn btn-success btn-lg">
+                        <i class="fas fa-plus me-2"></i>Adicionar Primeiro Gasto
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <div class="row">
+                    <div class="col-md-6">
+                        <a href="{{ url_for('controle_financeiro') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Voltar
+                        </a>
+                    </div>
+                    {% if gastos %}
+                    <div class="col-md-6 text-end">
+                        <strong>Total: R$ {{ "%.2f"|format(total_gastos|default(0)) }}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para confirmação de exclusão -->
+<div class="modal fade" id="modalExcluir" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir este gasto?</p>
+                <div class="alert alert-warning">
+                    <strong>Descrição:</strong> <span id="gastoDescricao"></span><br>
+                    <strong>Valor:</strong> R$ <span id="gastoValor"></span>
+                </div>
+                <p class="text-muted">Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formExcluir" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>Excluir
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Adicionar event listeners aos botões de excluir
+    const botoesExcluir = document.querySelectorAll('.btn-excluir');
+    
+    botoesExcluir.forEach(function(botao) {
+        botao.addEventListener('click', function() {
+            const gastoId = this.getAttribute('data-gasto-id');
+            const descricao = this.getAttribute('data-gasto-descricao');
+            const valor = parseFloat(this.getAttribute('data-gasto-valor'));
+            
+            confirmarExclusao(gastoId, descricao, valor);
+        });
+    });
+});
+
+function confirmarExclusao(gastoId, descricao, valor) {
+    // Atualizar conteúdo do modal
+    document.getElementById('gastoDescricao').textContent = descricao;
+    document.getElementById('gastoValor').textContent = valor.toFixed(2);
+    
+    // Atualizar action do formulário
+    document.getElementById('formExcluir').action = '/gastos/excluir/' + gastoId;
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalExcluir'));
+    modal.show();
+}
+</script>
+
+{% endblock %}

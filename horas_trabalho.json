@@ -1,0 +1,44 @@
+{
+  "funcionarios": {
+    "Fabieli Patricia Altissimo": {
+      "cargo": "Empregada Doméstica",
+      "salario_hora": 6.9,
+      "data_cadastro": "2025-09-23",
+      "salario_mensal": 1518.0,
+      "horas_mensais": 220
+    }
+  },
+  "registros": [
+    {
+      "funcionario": "Fabieli Patricia Altissimo",
+      "data": "2025-09-22",
+      "dia": 22,
+      "mes": 9,
+      "ano": 2025,
+      "hora_entrada": "08:00",
+      "hora_saida_almoco": "12:00",
+      "hora_volta_almoco": "13:00",
+      "hora_saida": "18:25",
+      "tempo_almoco": 1.0,
+      "horas_trabalhadas": 9.42,
+      "horas_extras": 1.42,
+      "data_registro": "2025-09-23 16:35:06",
+      "data_edicao": "2025-09-23 16:51:02"
+    },
+    {
+      "funcionario": "Fabieli Patricia Altissimo",
+      "data": "2025-09-23",
+      "dia": 23,
+      "mes": 9,
+      "ano": 2025,
+      "hora_entrada": "07:00",
+      "hora_saida_almoco": "12:00",
+      "hora_volta_almoco": "13:00",
+      "hora_saida": "18:36",
+      "tempo_almoco": 1.0,
+      "horas_trabalhadas": 10.6,
+      "horas_extras": 2.6,
+      "data_registro": "2025-09-24 08:49:07"
+    }
+  ]
+}

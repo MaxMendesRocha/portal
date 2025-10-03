@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Relatórios - Sistema de Controle{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3"><i class="fas fa-chart-bar me-3"></i>Relatórios Gerais</h1>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Voltar ao Início
+                </a>
+            </div>
+
+            {% if relatorios_data %}
+            <div class="row">
+                {% for item in relatorios_data %}
+                <div class="col-lg-6 col-xl-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-user me-2"></i>{{ item.funcionario.nome }}
+                            </h5>
+                            <small class="text-white-50">{{ item.funcionario.cargo }}</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <div class="text-center">
+                                        <i class="fas fa-clock text-info fa-2x mb-2"></i>
+                                        <p class="h5 mb-0">{{ item.total_registros }}</p>
+                                        <small class="text-muted">Registros</small>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-center">
+                                        <i class="fas fa-calendar text-success fa-2x mb-2"></i>
+                                        <p class="h5 mb-0">{{ item.meses_trabalhados|length }}</p>
+                                        <small class="text-muted">Meses</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% if item.meses_trabalhados %}
+                            <h6 class="border-bottom pb-2 mb-3">
+                                <i class="fas fa-calendar-check me-2"></i>Relatórios Disponíveis
+                            </h6>
+                            
+                            <div class="d-grid gap-2">
+                                <a href="{{ url_for('visualizar_funcionario', nome=item.funcionario.nome) }}" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-user me-1"></i>Perfil Completo
+                                </a>
+                                
+                                {% for mes in item.meses_trabalhados[:3] %}
+                                <a href="{{ url_for('relatorio_mensal', funcionario_nome=item.funcionario.nome, mes=mes.mes|int, ano=mes.ano|int) }}" 
+                                   class="btn btn-outline-info btn-sm">
+                                    <i class="fas fa-calendar me-1"></i>
+                                    {{ mes.nome }} {{ mes.ano }} <small class="text-muted">(26-25)</small>
+                                </a>
+                                {% endfor %}
+                                
+                                {% if item.meses_trabalhados|length > 3 %}
+                                <a href="{{ url_for('visualizar_funcionario', nome=item.funcionario.nome) }}" 
+                                   class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-ellipsis-h me-1"></i>
+                                    Ver todos os {{ item.meses_trabalhados|length }} meses
+                                </a>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <div class="text-center text-muted">
+                                <i class="fas fa-calendar-times fa-3x mb-3"></i>
+                                <p>Nenhum registro encontrado</p>
+                                <a href="{{ url_for('registrar_horas') }}" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-plus me-1"></i>Registrar Horas
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Paginação -->
+            {% if pagination and pagination.total_pages > 1 %}
+            <nav aria-label="Paginação de relatórios" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <!-- Primeira página -->
+                    {% if pagination.page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('relatorios') }}">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Página anterior -->
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('relatorios', page=pagination.prev_page) if pagination.prev_page > 1 else url_for('relatorios') }}">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-left"></i>
+                        </span>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Números das páginas -->
+                    {% set start_page = [pagination.page - 2, 1]|max %}
+                    {% set end_page = [pagination.page + 2, pagination.total_pages]|min %}
+                    
+                    {% if start_page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('relatorios') }}">1</a>
+                    </li>
+                    {% if start_page > 2 %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                    {% endif %}
+                    
+                    {% for page_num in range(start_page, end_page + 1) %}
+                    <li class="page-item {{ 'active' if page_num == pagination.page else '' }}">
+                        {% if page_num == pagination.page %}
+                        <span class="page-link">{{ page_num }}</span>
+                        {% else %}
+                        <a class="page-link" href="{{ url_for('relatorios', page=page_num) if page_num > 1 else url_for('relatorios') }}">{{ page_num }}</a>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                    
+                    {% if end_page < pagination.total_pages %}
+                    {% if end_page < pagination.total_pages - 1 %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('relatorios', page=pagination.total_pages) }}">{{ pagination.total_pages }}</a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Próxima página -->
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('relatorios', page=pagination.next_page) }}">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-right"></i>
+                        </span>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Última página -->
+                    {% if pagination.page < pagination.total_pages %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('relatorios', page=pagination.total_pages) }}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                
+                <!-- Informações da paginação -->
+                <div class="text-center mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Mostrando {{ (pagination.page - 1) * pagination.per_page + 1 }} - 
+                        {{ [pagination.page * pagination.per_page, pagination.total]|min }} de 
+                        {{ pagination.total }} funcionário{{ 's' if pagination.total != 1 else '' }}
+                    </small>
+                </div>
+            </nav>
+            {% endif %}
+            {% else %}
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-users fa-4x text-muted mb-4"></i>
+                    <h4 class="text-muted">Nenhum funcionário encontrado</h4>
+                    <p class="text-muted">Adicione funcionários para visualizar relatórios</p>
+                    <a href="{{ url_for('adicionar_funcionario') }}" class="btn btn-primary">
+                        <i class="fas fa-user-plus me-2"></i>Adicionar Funcionário
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.btn-custom {
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-custom:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.card {
+    border-radius: 12px;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+}
+</style>
+{% endblock %}

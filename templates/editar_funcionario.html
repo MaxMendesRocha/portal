@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Funcionário - Portal de Horas{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header bg-warning text-dark text-center">
+                <h3 class="mb-0">
+                    <i class="fas fa-user-cog me-2"></i>
+                    Editar Funcionário
+                </h3>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="nome" class="form-label">
+                            <i class="fas fa-user me-2"></i>Nome Completo *
+                        </label>
+                        <input type="text" class="form-control" id="nome" name="nome" 
+                               value="{{ funcionario_data.nome }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="cargo" class="form-label">
+                            <i class="fas fa-briefcase me-2"></i>Cargo *
+                        </label>
+                        <input type="text" class="form-control" id="cargo" name="cargo" 
+                               value="{{ funcionario_data.cargo }}" required 
+                               placeholder="Ex: Assistente Administrativo">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="salario_mensal" class="form-label">
+                            <i class="fas fa-dollar-sign me-2"></i>Salário Mensal (R$) *
+                        </label>
+                        <input type="number" class="form-control" id="salario_mensal" name="salario_mensal" 
+                               value="{{ funcionario_data.salario_mensal or (funcionario_data.salario_hora * 200) if funcionario_data.salario_hora else 1518.00 }}" required 
+                               step="0.01" min="0" placeholder="1518.00">
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Valor por hora será calculado automaticamente: R$ <span id="valor_hora">{{ "%.2f"|format((funcionario_data.salario_mensal or (funcionario_data.salario_hora * 200) if funcionario_data.salario_hora else 1518.00) / 200) }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="desconto" class="form-label">
+                            <i class="fas fa-minus-circle me-2"></i>Desconto Mensal (R$)
+                        </label>
+                        <input type="number" class="form-control" id="desconto" name="desconto" 
+                               value="{{ funcionario_data.desconto or 0.00 }}" 
+                               step="0.01" min="0" placeholder="0.00">
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Valor a ser descontado do salário bruto (opcional)
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Informações:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Jornada padrão: 08:00 às 12:00 e 13:00 às 17:00 (8 horas)</li>
+                            <li>Horas extras: acima de 8 horas trabalhadas</li>
+                            <li>Valor hora extra: 50% adicional sobre o valor normal</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-warning btn-lg btn-custom">
+                            <i class="fas fa-save me-2"></i>Salvar Alterações
+                        </button>
+                        <a href="{{ url_for('visualizar_funcionario', nome=nome) }}" class="btn btn-secondary btn-custom">
+                            <i class="fas fa-arrow-left me-2"></i>Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Focar no primeiro campo
+    document.getElementById('nome').focus();
+    
+    // Calcular valor por hora em tempo real
+    const salarioMensalInput = document.getElementById('salario_mensal');
+    const valorHoraSpan = document.getElementById('valor_hora');
+    
+    salarioMensalInput.addEventListener('input', function() {
+        if (this.value < 0) {
+            this.value = 0;
+        }
+        
+        const salarioMensal = parseFloat(this.value) || 0;
+        const valorHora = salarioMensal / 200;
+        valorHoraSpan.textContent = valorHora.toFixed(2);
+    });
+});
+</script>
+{% endblock %}

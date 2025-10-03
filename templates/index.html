@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Portal de Controle de Horas{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <h1 class="card-title">
+                    <i class="fas fa-clock text-primary me-3"></i>
+                    Portal de Controle de Horas
+                </h1>
+                <p class="card-text lead">Gerencie as horas trabalhadas e calcule horas extras de forma simples e eficiente</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card btn-custom h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-user-tie fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">Adicionar Funcionário</h5>
+                <p class="card-text">Cadastre novos funcionários no sistema</p>
+                <a href="{{ url_for('adicionar_funcionario') }}" class="btn btn-primary btn-custom">
+                    <i class="fas fa-user-plus me-2"></i>Adicionar
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card btn-custom h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-business-time fa-3x text-success mb-3"></i>
+                <h5 class="card-title">Registrar Horas</h5>
+                <p class="card-text">Registre entrada, saída e calcule horas trabalhadas</p>
+                <a href="{{ url_for('registrar_horas') }}" class="btn btn-success btn-custom">
+                    <i class="fas fa-plus me-2"></i>Registrar
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card btn-custom h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-line fa-3x text-info mb-3"></i>
+                <h5 class="card-title">Relatórios</h5>
+                <p class="card-text">Visualize relatórios detalhados de cada funcionário</p>
+                <a href="{{ url_for('relatorios') }}" class="btn btn-info btn-custom">
+                    <i class="fas fa-chart-bar me-2"></i>Ver Relatórios
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card btn-custom h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-calculator fa-3x text-warning mb-3"></i>
+                <h5 class="card-title">Controle Financeiro</h5>
+                <p class="card-text">Gerencie custos, salários e análise financeira</p>
+                <a href="{{ url_for('controle_financeiro') }}" class="btn btn-warning btn-custom">
+                    <i class="fas fa-dollar-sign me-2"></i>Financeiro
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if funcionarios %}
+<div id="funcionarios" class="row">
+    <div class="col-12">
+        <h2 class="mb-4">
+            <i class="fas fa-users text-primary me-2"></i>
+            Funcionários Cadastrados
+        </h2>
+    </div>
+    
+    {% for nome, dados in funcionarios.items() %}
+    <div class="col-lg-6 col-xl-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-user me-2"></i>{{ nome }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    <strong><i class="fas fa-briefcase me-2"></i>Cargo:</strong> {{ dados.cargo }}<br>
+                    <strong><i class="fas fa-dollar-sign me-2"></i>Salário/Hora:</strong> R$ {{ "%.2f"|format(dados.salario_hora) }}<br>
+                    <strong><i class="fas fa-calendar me-2"></i>Cadastrado em:</strong> {{ dados.data_cadastro }}
+                </p>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('visualizar_funcionario', nome=nome) }}" class="btn btn-outline-primary btn-sm btn-custom">
+                    <i class="fas fa-eye me-2"></i>Ver Detalhes
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Paginação -->
+{% if pagination and pagination.total_pages > 1 %}
+<nav aria-label="Paginação de funcionários" class="mt-4">
+    <ul class="pagination justify-content-center">
+        <!-- Primeira página -->
+        {% if pagination.page > 1 %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('index') }}">
+                <i class="fas fa-angle-double-left"></i>
+            </a>
+        </li>
+        {% endif %}
+        
+        <!-- Página anterior -->
+        {% if pagination.has_prev %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('index', page=pagination.prev_page) if pagination.prev_page > 1 else url_for('index') }}">
+                <i class="fas fa-angle-left"></i>
+            </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">
+                <i class="fas fa-angle-left"></i>
+            </span>
+        </li>
+        {% endif %}
+        
+        <!-- Números das páginas -->
+        {% set start_page = [pagination.page - 2, 1]|max %}
+        {% set end_page = [pagination.page + 2, pagination.total_pages]|min %}
+        
+        {% if start_page > 1 %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('index') }}">1</a>
+        </li>
+        {% if start_page > 2 %}
+        <li class="page-item disabled">
+            <span class="page-link">...</span>
+        </li>
+        {% endif %}
+        {% endif %}
+        
+        {% for page_num in range(start_page, end_page + 1) %}
+        <li class="page-item {{ 'active' if page_num == pagination.page else '' }}">
+            {% if page_num == pagination.page %}
+            <span class="page-link">{{ page_num }}</span>
+            {% else %}
+            <a class="page-link" href="{{ url_for('index', page=page_num) if page_num > 1 else url_for('index') }}">{{ page_num }}</a>
+            {% endif %}
+        </li>
+        {% endfor %}
+        
+        {% if end_page < pagination.total_pages %}
+        {% if end_page < pagination.total_pages - 1 %}
+        <li class="page-item disabled">
+            <span class="page-link">...</span>
+        </li>
+        {% endif %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('index', page=pagination.total_pages) }}">{{ pagination.total_pages }}</a>
+        </li>
+        {% endif %}
+        
+        <!-- Próxima página -->
+        {% if pagination.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('index', page=pagination.next_page) }}">
+                <i class="fas fa-angle-right"></i>
+            </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">
+                <i class="fas fa-angle-right"></i>
+            </span>
+        </li>
+        {% endif %}
+        
+        <!-- Última página -->
+        {% if pagination.page < pagination.total_pages %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('index', page=pagination.total_pages) }}">
+                <i class="fas fa-angle-double-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+    
+    <!-- Informações da paginação -->
+    <div class="text-center mt-3">
+        <small class="text-muted">
+            <i class="fas fa-info-circle me-1"></i>
+            Mostrando {{ (pagination.page - 1) * pagination.per_page + 1 }} - 
+            {{ [pagination.page * pagination.per_page, pagination.total]|min }} de 
+            {{ pagination.total }} funcionário{{ 's' if pagination.total != 1 else '' }}
+        </small>
+    </div>
+</nav>
+{% endif %}
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info text-center" role="alert">
+            <i class="fas fa-info-circle fa-2x mb-3"></i>
+            <h4>Nenhum funcionário cadastrado</h4>
+            <p>Comece adicionando funcionários ao sistema para controlar suas horas trabalhadas.</p>
+            <a href="{{ url_for('adicionar_funcionario') }}" class="btn btn-primary btn-custom">
+                <i class="fas fa-plus me-2"></i>Adicionar Primeiro Funcionário
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+< ! - -   U p d a t e d   1 0 / 0 2 / 2 0 2 5   1 5 : 4 3 : 5 1   - - >  
+ 

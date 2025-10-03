@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar Horas - Portal de Horas{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header bg-success text-white text-center">
+                <h3 class="mb-0">
+                    <i class="fas fa-business-time me-2"></i>
+                    Registrar Horas Trabalhadas
+                </h3>
+            </div>
+            <div class="card-body">
+                {% if funcionarios %}
+                <form method="POST" id="horasForm">
+                    <div class="mb-3">
+                        <label for="funcionario" class="form-label">
+                            <i class="fas fa-user me-2"></i>Funcionário *
+                        </label>
+                        <select class="form-select" id="funcionario" name="funcionario" required>
+                            <option value="">Selecione o funcionário</option>
+                            {% for nome in funcionarios.keys() %}
+                            <option value="{{ nome }}">{{ nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="data" class="form-label">
+                            <i class="fas fa-calendar me-2"></i>Data *
+                        </label>
+                        <input type="date" class="form-control" id="data" name="data" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hora_entrada" class="form-label">
+                                    <i class="fas fa-sign-in-alt text-success me-2"></i>Hora de Entrada *
+                                </label>
+                                <input type="time" class="form-control" id="hora_entrada" name="hora_entrada" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hora_saida_almoco" class="form-label">
+                                    <i class="fas fa-utensils text-warning me-2"></i>Saída para Almoço *
+                                </label>
+                                <input type="time" class="form-control" id="hora_saida_almoco" name="hora_saida_almoco" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hora_volta_almoco" class="form-label">
+                                    <i class="fas fa-arrow-left text-info me-2"></i>Volta do Almoço *
+                                </label>
+                                <input type="time" class="form-control" id="hora_volta_almoco" name="hora_volta_almoco" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hora_saida" class="form-label">
+                                    <i class="fas fa-sign-out-alt text-danger me-2"></i>Hora de Saída *
+                                </label>
+                                <input type="time" class="form-control" id="hora_saida" name="hora_saida" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert" id="previa" style="display: none;">
+                        <i class="fas fa-calculator me-2"></i>
+                        <strong>Prévia do Cálculo:</strong>
+                        <div id="resultado-previa"></div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg btn-custom">
+                            <i class="fas fa-save me-2"></i>Registrar Horas
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary btn-custom">
+                            <i class="fas fa-arrow-left me-2"></i>Voltar
+                        </a>
+                    </div>
+                </form>
+                {% else %}
+                <div class="alert alert-warning text-center" role="alert">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                    <h4>Nenhum funcionário cadastrado</h4>
+                    <p>Você precisa cadastrar pelo menos um funcionário antes de registrar horas.</p>
+                    <a href="{{ url_for('adicionar_funcionario') }}" class="btn btn-primary btn-custom">
+                        <i class="fas fa-user-plus me-2"></i>Cadastrar Funcionário
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-info-circle text-primary me-2"></i>
+                    Instruções para Registro
+                </h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success me-2"></i>Selecione o funcionário</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Informe a data do trabalho</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Digite a hora de entrada</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Digite a saída para almoço</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success me-2"></i>Digite a volta do almoço</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Digite a hora de saída</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Visualize a prévia do cálculo</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Confirme o registro</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dataInput = document.getElementById('data');
+    const entradaInput = document.getElementById('hora_entrada');
+    const saidaAlmocoInput = document.getElementById('hora_saida_almoco');
+    const voltaAlmocoInput = document.getElementById('hora_volta_almoco');
+    const saidaInput = document.getElementById('hora_saida');
+    const previaDivs = document.getElementById('previa');
+    const resultadoDiv = document.getElementById('resultado-previa');
+    
+    // Definir data de hoje como padrão
+    const hoje = new Date().toISOString().split('T')[0];
+    dataInput.value = hoje;
+    
+    function calcularPrevia() {
+        const entrada = entradaInput.value;
+        const saidaAlmoco = saidaAlmocoInput.value;
+        const voltaAlmoco = voltaAlmocoInput.value;
+        const saida = saidaInput.value;
+        
+        if (entrada && saidaAlmoco && voltaAlmoco && saida) {
+            const entradaDate = new Date(`2000-01-01 ${entrada}`);
+            const saidaAlmocoDate = new Date(`2000-01-01 ${saidaAlmoco}`);
+            const voltaAlmocoDate = new Date(`2000-01-01 ${voltaAlmoco}`);
+            const saidaDate = new Date(`2000-01-01 ${saida}`);
+            
+            if (saidaAlmocoDate > entradaDate && voltaAlmocoDate > saidaAlmocoDate && saidaDate > voltaAlmocoDate) {
+                // Calcular períodos de trabalho
+                const periodoManha = (saidaAlmocoDate - entradaDate) / 1000 / 60 / 60;
+                const periodoTarde = (saidaDate - voltaAlmocoDate) / 1000 / 60 / 60;
+                const totalTrabalhado = periodoManha + periodoTarde;
+                
+                // Calcular tempo de almoço
+                const tempoAlmoco = (voltaAlmocoDate - saidaAlmocoDate) / 1000 / 60 / 60;
+                
+                const horasExtras = Math.max(0, totalTrabalhado - 8);
+                const horasNormais = Math.min(totalTrabalhado, 8);
+                
+                resultadoDiv.innerHTML = `
+                    <div class="row text-center">
+                        <div class="col-3">
+                            <strong>Total: ${totalTrabalhado.toFixed(2)}h</strong>
+                        </div>
+                        <div class="col-3">
+                            <strong>Normais: ${horasNormais.toFixed(2)}h</strong>
+                        </div>
+                        <div class="col-3">
+                            <strong class="text-danger">Extras: ${horasExtras.toFixed(2)}h</strong>
+                        </div>
+                        <div class="col-3">
+                            <strong class="text-info">Almoço: ${tempoAlmoco.toFixed(2)}h</strong>
+                        </div>
+                    </div>
+                `;
+                previaDivs.style.display = 'block';
+            } else {
+                previaDivs.style.display = 'none';
+            }
+        } else {
+            previaDivs.style.display = 'none';
+        }
+    }
+    
+    entradaInput.addEventListener('change', calcularPrevia);
+    saidaAlmocoInput.addEventListener('change', calcularPrevia);
+    voltaAlmocoInput.addEventListener('change', calcularPrevia);
+    saidaInput.addEventListener('change', calcularPrevia);
+});
+</script>
+{% endblock %}
