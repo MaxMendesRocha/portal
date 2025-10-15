@@ -202,6 +202,75 @@ document.addEventListener('DOMContentLoaded', function() {
     saidaAlmocoInput.addEventListener('change', calcularPrevia);
     voltaAlmocoInput.addEventListener('change', calcularPrevia);
     saidaInput.addEventListener('change', calcularPrevia);
+    
+    // Função para verificar se já existe lançamento
+    async function verificarLancamentoExistente() {
+        const funcionario = document.getElementById('funcionario').value;
+        const data = document.getElementById('data').value;
+        
+        if (!funcionario || !data) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/verificar_lancamento', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    funcionario: funcionario,
+                    data: data
+                })
+            });
+            
+            const resultado = await response.json();
+            
+            // Remover alertas anteriores
+            const alertasAnteriores = document.querySelectorAll('.alerta-lancamento-existente');
+            alertasAnteriores.forEach(alerta => alerta.remove());
+            
+            if (resultado.existe) {
+                // Criar alerta de aviso
+                const alerta = document.createElement('div');
+                alerta.className = 'alert alert-warning alerta-lancamento-existente mt-3';
+                alerta.innerHTML = `
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>⚠️ Atenção:</strong> Já existe lançamento para <strong>${funcionario}</strong> na data <strong>${data}</strong>!<br>
+                    <small class="mt-1 d-block">
+                        <i class="fas fa-clock me-1"></i> Horários: ${resultado.registro.hora_entrada} às ${resultado.registro.hora_saida} 
+                        (${resultado.registro.horas_trabalhadas}h trabalhadas)
+                    </small>
+                `;
+                
+                // Inserir o alerta após o campo de data
+                const campoData = document.getElementById('data').closest('.mb-3');
+                campoData.insertAdjacentElement('afterend', alerta);
+                
+                // Desabilitar o botão de envio
+                const botaoEnviar = document.querySelector('button[type="submit"]');
+                if (botaoEnviar) {
+                    botaoEnviar.disabled = true;
+                    botaoEnviar.innerHTML = '<i class="fas fa-ban me-2"></i>Lançamento já existe';
+                    botaoEnviar.className = 'btn btn-secondary btn-lg w-100';
+                }
+            } else {
+                // Habilitar o botão de envio
+                const botaoEnviar = document.querySelector('button[type="submit"]');
+                if (botaoEnviar) {
+                    botaoEnviar.disabled = false;
+                    botaoEnviar.innerHTML = '<i class="fas fa-save me-2"></i>Registrar Horas';
+                    botaoEnviar.className = 'btn btn-success btn-lg w-100';
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao verificar lançamento:', error);
+        }
+    }
+    
+    // Adicionar listeners para verificação
+    document.getElementById('funcionario').addEventListener('change', verificarLancamentoExistente);
+    document.getElementById('data').addEventListener('change', verificarLancamentoExistente);
 });
 </script>
 {% endblock %}

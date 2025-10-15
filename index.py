@@ -461,6 +461,20 @@ def registrar_horas():
         # Calcular horas extras (manter precisão máxima antes do arredondamento final)
         horas_extras = calcular_horas_extras(horas_trabalhadas)
         
+        # VALIDAÇÃO: Verificar se já existe lançamento para esta data e funcionário
+        query_verificacao = """
+            SELECT id, hora_entrada, hora_saida, horas_trabalhadas 
+            FROM registros_ponto 
+            WHERE funcionario_id = ? AND data = ?
+        """
+        registro_existente = DatabaseManager.execute_query(query_verificacao, (funcionario['id'], data), fetch_one=True)
+        
+        if registro_existente:
+            flash(f'❌ ERRO: Já existe lançamento de horas para {funcionario_nome} na data {data}!', 'error')
+            flash(f'📋 Registro existente: {registro_existente["hora_entrada"]} às {registro_existente["hora_saida"]} ({registro_existente["horas_trabalhadas"]:.2f}h)', 'warning')
+            flash(f'💡 Para corrigir: Vá em "Funcionários" → "{funcionario_nome}" → Editar o registro da data {data}', 'info')
+            return redirect(url_for('registrar_horas'))
+        
         try:
             # Inserir registro (arredondar apenas no final para manter precisão)
             query = """
@@ -477,11 +491,12 @@ def registrar_horas():
                 round(horas_extras, 4), datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             ))
             
-            flash(f'Horas registradas para {funcionario_nome}! Total: {horas_trabalhadas:.2f}h, Extras: {horas_extras:.2f}h, Almoço: {tempo_almoco_horas:.2f}h', 'success')
+            flash(f'✅ Horas registradas com sucesso para {funcionario_nome}! Total: {horas_trabalhadas:.2f}h, Extras: {horas_extras:.2f}h, Almoço: {tempo_almoco_horas:.2f}h', 'success')
             return redirect(url_for('visualizar_funcionario', nome=funcionario_nome))
             
         except sqlite3.IntegrityError:
-            flash(f'Já existe registro para {funcionario_nome} na data {data}!', 'error')
+            flash(f'❌ Erro de integridade: Já existe registro para {funcionario_nome} na data {data}!', 'error')
+            return redirect(url_for('registrar_horas'))
     
     # Buscar funcionários para o formulário
     query = "SELECT nome FROM funcionarios WHERE ativo = 1 ORDER BY nome"
@@ -930,6 +945,48 @@ def relatorio_gastos():
             'mes_referencia': datetime.now().strftime('%B de %Y')
         }
         return render_template('relatorio_gastos.html', dados=dados_relatorio)
+
+@app.route('/api/verificar_lancamento', methods=['POST'])
+def verificar_lancamento():
+    """API para verificar se já existe lançamento para funcionário e data"""
+    try:
+        data = request.get_json()
+        funcionario_nome = data.get('funcionario')
+        data_registro = data.get('data')
+        
+        if not funcionario_nome or not data_registro:
+            return jsonify({'erro': 'Funcionário e data são obrigatórios'}), 400
+            
+        # Buscar funcionário
+        query = "SELECT id FROM funcionarios WHERE nome = ?"
+        funcionario = DatabaseManager.execute_query(query, (funcionario_nome,), fetch_one=True)
+        
+        if not funcionario:
+            return jsonify({'erro': 'Funcionário não encontrado'}), 404
+            
+        # Verificar se já existe lançamento
+        query_verificacao = """
+            SELECT id, hora_entrada, hora_saida, horas_trabalhadas, data_registro
+            FROM registros_ponto 
+            WHERE funcionario_id = ? AND data = ?
+        """
+        registro_existente = DatabaseManager.execute_query(query_verificacao, (funcionario['id'], data_registro), fetch_one=True)
+        
+        if registro_existente:
+            return jsonify({
+                'existe': True,
+                'registro': {
+                    'hora_entrada': registro_existente['hora_entrada'],
+                    'hora_saida': registro_existente['hora_saida'],
+                    'horas_trabalhadas': registro_existente['horas_trabalhadas'],
+                    'data_registro': registro_existente['data_registro']
+                }
+            })
+        else:
+            return jsonify({'existe': False})
+            
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
 
 if __name__ == '__main__':
     # Verificar se o banco existe
