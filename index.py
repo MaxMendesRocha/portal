@@ -939,4 +939,4 @@ if __name__ == '__main__':
         exit(1)
     
     print("🗄️  Usando banco SQLite: " + DB_FILE)
-    app.run(debug=True, host='0.0.0.0', port=8000)
+    app.run(debug=True, host='0.0.0.0', port=5001)
