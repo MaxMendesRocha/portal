@@ -946,6 +946,54 @@ def relatorio_gastos():
         }
         return render_template('relatorio_gastos.html', dados=dados_relatorio)
 
+@app.route('/calculo_avulso', methods=['GET', 'POST'])
+def calculo_avulso():
+    """Página para cálculo avulso de horas trabalhadas"""
+    resultado = None
+    
+    if request.method == 'POST':
+        funcionario_nome = request.form.get('funcionario')
+        quantidade_horas = float(request.form.get('quantidade_horas', 0))
+        percentual = request.form.get('percentual')  # '50' ou '100'
+        
+        # Buscar funcionário e valor da hora
+        query = "SELECT nome, salario_hora FROM funcionarios WHERE nome = ? AND ativo = 1"
+        funcionario = DatabaseManager.execute_query(query, (funcionario_nome,), fetch_one=True)
+        
+        if funcionario:
+            valor_hora = funcionario['salario_hora']
+            
+            # Calcular valor baseado no percentual
+            # ACRÉSCIMO sobre o valor base (hora extra)
+            if percentual == '50':
+                # Valor base + 50% de acréscimo
+                valor_hora_calculado = valor_hora * 1.5
+                tipo_calculo = '50% (hora extra)'
+            else:  # 100%
+                # Valor base + 100% de acréscimo (dobro)
+                valor_hora_calculado = valor_hora * 2.0
+                tipo_calculo = '100% (hora extra)'
+            
+            valor_total = quantidade_horas * valor_hora_calculado
+            
+            resultado = {
+                'funcionario': funcionario['nome'],
+                'quantidade_horas': quantidade_horas,
+                'valor_hora_base': valor_hora,
+                'percentual': tipo_calculo,
+                'valor_hora_calculado': valor_hora_calculado,
+                'valor_total': valor_total
+            }
+        else:
+            flash('Funcionário não encontrado!', 'error')
+    
+    # Buscar funcionários ativos para o formulário
+    query = "SELECT nome, salario_hora FROM funcionarios WHERE ativo = 1 ORDER BY nome"
+    funcionarios_list = DatabaseManager.execute_query(query, fetch_all=True)
+    funcionarios = {f['nome']: {'nome': f['nome'], 'valor_hora': f['salario_hora']} for f in funcionarios_list}
+    
+    return render_template('calculo_avulso.html', funcionarios=funcionarios, resultado=resultado)
+
 @app.route('/api/verificar_lancamento', methods=['POST'])
 def verificar_lancamento():
     """API para verificar se já existe lançamento para funcionário e data"""
