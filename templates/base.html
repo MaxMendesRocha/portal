@@ -58,32 +58,32 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('adicionar_funcionario') }}">
+                        <a class="{{ 'nav-link' if has_endpoint('adicionar_funcionario') else 'nav-link disabled' }}" href="{{ url_for('adicionar_funcionario') if has_endpoint('adicionar_funcionario') else '#' }}">
                             <i class="fas fa-user-plus me-1"></i>Adicionar Funcionário
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('registrar_horas') }}">
+                        <a class="{{ 'nav-link' if has_endpoint('registrar_horas') else 'nav-link disabled' }}" href="{{ url_for('registrar_horas') if has_endpoint('registrar_horas') else '#' }}">
                             <i class="fas fa-plus-circle me-1"></i>Registrar Horas
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('relatorios') }}">
+                        <a class="{{ 'nav-link' if has_endpoint('relatorios') else 'nav-link disabled' }}" href="{{ url_for('relatorios') if has_endpoint('relatorios') else '#' }}">
                             <i class="fas fa-chart-bar me-1"></i>Relatórios
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('calculo_avulso') }}">
+                        <a class="{{ 'nav-link' if has_endpoint('calculo_avulso') else 'nav-link disabled' }}" href="{{ url_for('calculo_avulso') if has_endpoint('calculo_avulso') else '#' }}">
                             <i class="fas fa-calculator me-1"></i>Cálculo Avulso
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('config_carga') }}">
+                        <a class="{{ 'nav-link' if has_endpoint('config_carga') else 'nav-link disabled' }}" href="{{ url_for('config_carga') if has_endpoint('config_carga') else '#' }}">
                             <i class="fas fa-clock me-1"></i>Configuração de Carga
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('controle_financeiro') }}">
+                        <a class="{{ 'nav-link' if has_endpoint('controle_financeiro') else 'nav-link disabled' }}" href="{{ url_for('controle_financeiro') if has_endpoint('controle_financeiro') else '#' }}">
                             <i class="fas fa-wallet me-1"></i>Controle Financeiro
                         </a>
                     </li>
