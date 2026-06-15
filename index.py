@@ -1255,7 +1255,14 @@ def config_carga():
 
     # GET
     funcionarios = DatabaseManager.execute_query("SELECT id, nome FROM funcionarios WHERE ativo = 1 ORDER BY nome", fetch_all=True)
-    cargas = DatabaseManager.execute_query("SELECT ch.*, f.nome as funcionario_nome FROM carga_horaria ch LEFT JOIN funcionarios f ON ch.funcionario_id = f.id WHERE ch.ativo = 1 ORDER BY f.nome", fetch_all=True)
+    cargas = DatabaseManager.execute_query(
+        "SELECT ch.*, f.nome as funcionario_nome "
+        "FROM carga_horaria ch "
+        "LEFT JOIN funcionarios f ON ch.funcionario_id = f.id "
+        "WHERE ch.ativo = 1 "
+        "ORDER BY f.nome",
+        fetch_all=True
+    )
     return render_template('config_carga.html', funcionarios=funcionarios, cargas=cargas)
 
 
