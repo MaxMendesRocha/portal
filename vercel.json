@@ -1,9 +1,15 @@
 {
-  "functions": {
-    "app.py": {
-      "runtime": "python3.12"
+  "build": {
+    "env": {
+      "SKIP_DB_INIT": "1"
     }
   },
+  "builds": [
+    {
+      "src": "app.py",
+      "use": "@vercel/python"
+    }
+  ],
   "routes": [
     {
       "src": "/(.*)",
