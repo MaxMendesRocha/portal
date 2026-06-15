@@ -1,0 +1,12 @@
+{
+  "build": {
+    "env": {
+      "SKIP_DB_INIT": "1"
+    }
+  },
+  "functions": {
+    "app.py": {
+      "runtime": "python3.12"
+    }
+  }
+}

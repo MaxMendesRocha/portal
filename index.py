@@ -624,7 +624,7 @@ def registrar_horas():
             ))
             
             flash(f'✅ Horas registradas com sucesso para {funcionario_nome}! Total: {horas_trabalhadas:.2f}h, Extras: {horas_extras:.2f}h, Almoço: {tempo_almoco_horas:.2f}h', 'success')
-                return redirect(url_for('visualizar_funcionario_por_id', funcionario_id=funcionario['id']))
+            return redirect(url_for('visualizar_funcionario_por_id', funcionario_id=funcionario['id']))
             
         except sqlite3.IntegrityError:
             flash(f'❌ Erro de integridade: Já existe registro para {funcionario_nome} na data {data}!', 'error')
@@ -1331,7 +1331,10 @@ def initialize_carga_table():
     DatabaseManager.execute_query(query)
 
 # Garantir que a tabela exista independentemente da forma como o app for carregado
-initialize_carga_table()
+# Durante o import em plataformas serverless (Vercel) evitar operações de escrita
+# no momento do import — use variável de ambiente `SKIP_DB_INIT=1` para pular.
+if os.environ.get('SKIP_DB_INIT') != '1':
+    initialize_carga_table()
 
 if __name__ == '__main__':
     # Verificar se o banco existe
