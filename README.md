@@ -11,6 +11,7 @@ Sistema web para controlar horas trabalhadas e calcular horas extras de funcion�
 - ✅ Cálculo de valores financeiros
 - ✅ Interface web moderna e responsiva
 - ✅ Relatórios para impressão
+- ✅ Suporte para deployment em ambientes serverless (Vercel)
 
 ## Como usar
 
@@ -22,13 +23,25 @@ pip install -r requirements.txt
 
 ### 2. Executar o sistema
 
+**Localmente:**
 ```powershell
 python index.py
 ```
 
-### 3. Acessar o sistema
-
 Abra seu navegador e acesse: http://localhost:5000
+
+**Em produção (Vercel):**
+```bash
+vercel deploy
+```
+
+### 3. Configuração de Variáveis de Ambiente
+
+Para produção, configure as seguintes variáveis no seu ambiente:
+
+```bash
+DB_FILE=/tmp/horas_trabalho.json  # Caminho para o arquivo de banco de dados
+```
 
 ## Fluxo de Uso
 
@@ -62,14 +75,17 @@ Abra seu navegador e acesse: http://localhost:5000
 - **Impressão**: Relatórios otimizados para impressão
 - **Prévia**: Cálculo em tempo real ao registrar horas
 - **Bootstrap**: Interface moderna com ícones Font Awesome
+- **Serverless Ready**: Compatível com ambientes serverless (Vercel, AWS Lambda, etc.)
 
 ## Estrutura de Arquivos
 
 ```
 Portal/
 ├── index.py                 # Aplicação principal Flask
+├── app.py                   # Entrypoint para ambientes serverless
 ├── requirements.txt         # Dependências Python
 ├── README.md               # Este arquivo
+├── vercel.json             # Configuração Vercel
 ├── horas_trabalho.json     # Dados (criado automaticamente)
 └── templates/              # Templates HTML
     ├── base.html           # Template base
@@ -95,8 +111,19 @@ app.run(debug=True, host='0.0.0.0', port=5000)  # Altere a porta se necessário
 - Configure um servidor web adequado (nginx, Apache)
 - Use HTTPS para conexões seguras
 - Faça backup regular do arquivo `horas_trabalho.json`
+- Em ambientes serverless, use variáveis de ambiente para armazenamento seguro
+
+## Atualizações Recentes
+
+- ✅ **Compatibilidade Serverless**: Removida dependência de `@app.before_first_request` para suportar ambientes serverless
+- ✅ **Inicialização Segura**: Banco de dados inicializado na primeira requisição
+- ✅ **Validação de Endpoints**: Adicionadas verificações `has_endpoint` para evitar erros em environments com endpoints faltantes
+- ✅ **Diagnóstico**: Endpoint `/_routes` disponível para listar rotas registradas
+- ✅ **Correção de Dependencies**: `requirements.txt` otimizado para instalação correta
 
 ## Suporte
 
 Sistema desenvolvido para controle interno de horas trabalhadas.
 Interface intuitiva e cálculos automáticos conforme legislação trabalhista brasileira.
+
+Para relatórios de bugs ou sugestões, abra uma issue no repositório.
