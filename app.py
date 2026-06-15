@@ -23,6 +23,18 @@ try:
 
     app.wsgi_app = _debug_middleware
 
+    # Diagnostic endpoint: lista todas as rotas registradas (temporário)
+    @app.route('/_routes')
+    def _list_routes():
+        try:
+            rules = []
+            for rule in sorted(app.url_map.iter_rules(), key=lambda r: r.rule):
+                methods = ','.join(sorted(rule.methods)) if rule.methods else ''
+                rules.append(f"{rule.endpoint} -> {rule.rule} [{methods}]")
+            return Response("\n".join(rules), mimetype='text/plain')
+        except Exception:
+            return Response(traceback.format_exc(), mimetype='text/plain'), 500
+
 except Exception:
     # Se a import falhar, expor fallback diagnóstico com o traceback da falha
     tb = traceback.format_exc()
