@@ -759,6 +759,27 @@ def editar_funcionario(nome):
     
     return render_template('editar_funcionario.html', funcionario_data=funcionario_data)
 
+
+@app.route('/excluir_funcionario/<int:funcionario_id>', methods=['POST'])
+def excluir_funcionario(funcionario_id):
+    """Marca um funcionário como inativo (soft delete)."""
+    # Buscar funcionário para mensagem
+    query_buscar = "SELECT nome FROM funcionarios WHERE id = ? AND ativo = 1"
+    funcionario = DatabaseManager.execute_query(query_buscar, (funcionario_id,), fetch_one=True)
+
+    if not funcionario:
+        flash('Funcionário não encontrado ou já excluído!', 'error')
+        return redirect(url_for('index'))
+
+    try:
+        query = "UPDATE funcionarios SET ativo = 0 WHERE id = ?"
+        DatabaseManager.execute_query(query, (funcionario_id,))
+        flash(f'Funcionário {funcionario["nome"]} excluído com sucesso!', 'success')
+        return redirect(url_for('index'))
+    except Exception as e:
+        flash(f'Erro ao excluir funcionário: {str(e)}', 'error')
+        return redirect(url_for('visualizar_funcionario', nome=funcionario['nome']))
+
 @app.route('/editar_registro/<int:registro_id>', methods=['GET', 'POST'])
 def editar_registro(registro_id):
     """Edita um registro de ponto"""
