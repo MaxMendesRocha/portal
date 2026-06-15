@@ -7,8 +7,8 @@ import json
 app = Flask(__name__)
 app.secret_key = 'sua_chave_secreta_aqui'
 
-# Arquivo do banco SQLite
-DB_FILE = 'horas_trabalho.db'
+# Arquivo do banco SQLite - em ambientes serverless use /tmp
+DB_FILE = os.environ.get('DB_FILE', '/tmp/horas_trabalho.db')
 
 class DatabaseManager:
     """Gerenciador de conexões com o banco SQLite"""
@@ -787,10 +787,10 @@ def excluir_funcionario(funcionario_id):
         return redirect(url_for('index'))
 
     try:
-        query = "UPDATE funcionarios SET ativo = 0 WHERE id = ?"
+        query = "UPDATE carga_horaria SET ativo = 0 WHERE id = ?"
         DatabaseManager.execute_query(query, (funcionario_id,))
-        flash(f'Funcionário {funcionario["nome"]} excluído com sucesso!', 'success')
-        return redirect(url_for('index'))
+        flash('Configuração removida', 'success')
+        return redirect(url_for('config_carga'))
     except Exception as e:
         flash(f'Erro ao excluir funcionário: {str(e)}', 'error')
         return redirect(url_for('visualizar_funcionario', nome=funcionario['nome']))
@@ -1337,20 +1337,38 @@ def initialize_carga_table():
     """
     DatabaseManager.execute_query(query)
 
-# Garantir que a tabela exista independentemente da forma como o app for carregado
-# Durante o import em plataformas serverless (Vercel) evitar operações de escrita
-# no momento do import — use variável de ambiente `SKIP_DB_INIT=1` para pular.
-if os.environ.get('SKIP_DB_INIT') != '1':
-    initialize_carga_table()
+# Evitar operações de escrita durante o import em ambientes serverless.
+# Em vez disso, inicializar o DB no primeiro request quando apropriado.
+@app.before_first_request
+def ensure_db():
+    # Se SKIP_DB_INIT estiver definido como '1', não execute inicializações (útil durante build)
+    if os.environ.get('SKIP_DB_INIT') == '1':
+        return
+
+    # Garantir que o diretório do DB exista (por exemplo /tmp)
+    db_dir = os.path.dirname(DB_FILE)
+    if db_dir and not os.path.exists(db_dir):
+        try:
+            os.makedirs(db_dir, exist_ok=True)
+        except Exception:
+            pass
+
+    # Criar tabelas básicas se necessário
+    try:
+        initialize_carga_table()
+        # Aqui você pode chamar outras rotinas de migração/criação de tabela, se necessário
+    except Exception:
+        # Não falhar no startup por causa de problemas de criação de tabela
+        pass
 
 if __name__ == '__main__':
-    # Verificar se o banco existe
+    # Verificar se o banco existe (modo local)
     if not os.path.exists(DB_FILE):
         print("[AVISO] Banco SQLite não encontrado!")
         print("        Execute: python migrar_para_sqlite.py")
-        exit(1)
+        # Não exit here to allow local auto-creation if desired
 
-    # Garantir que a tabela de configuração de carga horária exista
+    # Garantir que a tabela de configuração de carga horária exista em modo local
     initialize_carga_table()
     
     print("[INFO] Usando banco SQLite: " + DB_FILE)
