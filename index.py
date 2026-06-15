@@ -7,8 +7,8 @@ import json
 app = Flask(__name__)
 app.secret_key = 'sua_chave_secreta_aqui'
 
-# Arquivo do banco SQLite - em ambientes serverless use /tmp
-DB_FILE = os.environ.get('DB_FILE', '/tmp/horas_trabalho.db')
+# Arquivo do banco SQLite
+DB_FILE = 'horas_trabalho.db'
 
 class DatabaseManager:
     """Gerenciador de conexões com o banco SQLite"""
@@ -787,10 +787,10 @@ def excluir_funcionario(funcionario_id):
         return redirect(url_for('index'))
 
     try:
-        query = "UPDATE carga_horaria SET ativo = 0 WHERE id = ?"
+        query = "UPDATE funcionarios SET ativo = 0 WHERE id = ?"
         DatabaseManager.execute_query(query, (funcionario_id,))
-        flash('Configuração removida', 'success')
-        return redirect(url_for('config_carga'))
+        flash(f'Funcionário {funcionario["nome"]} excluído com sucesso!', 'success')
+        return redirect(url_for('index'))
     except Exception as e:
         flash(f'Erro ao excluir funcionário: {str(e)}', 'error')
         return redirect(url_for('visualizar_funcionario', nome=funcionario['nome']))
@@ -1139,187 +1139,6 @@ def relatorio_gastos():
         }
         return render_template('relatorio_gastos.html', dados=dados_relatorio)
 
-@app.route('/calculo_avulso', methods=['GET', 'POST'])
-def calculo_avulso():
-    """Página para cálculo avulso de horas trabalhadas"""
-    resultado = None
-    
-    if request.method == 'POST':
-        funcionario_nome = request.form.get('funcionario')
-        quantidade_horas = float(request.form.get('quantidade_horas', 0))
-        percentual = request.form.get('percentual')  # '50' ou '100'
-        
-        # Buscar funcionário e valor da hora
-        query = "SELECT nome, salario_hora FROM funcionarios WHERE nome = ? AND ativo = 1"
-        funcionario = DatabaseManager.execute_query(query, (funcionario_nome,), fetch_one=True)
-        
-        if funcionario:
-            valor_hora = funcionario['salario_hora']
-            
-            # Calcular valor baseado no percentual
-            # ACRÉSCIMO sobre o valor base (hora extra)
-            if percentual == '50':
-                # Valor base + 50% de acréscimo
-                valor_hora_calculado = valor_hora * 1.5
-                tipo_calculo = '50% (hora extra)'
-            else:  # 100%
-                # Valor base + 100% de acréscimo (dobro)
-                valor_hora_calculado = valor_hora * 2.0
-                tipo_calculo = '100% (hora extra)'
-            
-            valor_total = quantidade_horas * valor_hora_calculado
-            
-            resultado = {
-                'funcionario': funcionario['nome'],
-                'quantidade_horas': quantidade_horas,
-                'valor_hora_base': valor_hora,
-                'percentual': tipo_calculo,
-                'valor_hora_calculado': valor_hora_calculado,
-                'valor_total': valor_total
-            }
-        else:
-            flash('Funcionário não encontrado!', 'error')
-    
-    # Buscar funcionários ativos para o formulário
-    query = "SELECT nome, salario_hora FROM funcionarios WHERE ativo = 1 ORDER BY nome"
-    funcionarios_list = DatabaseManager.execute_query(query, fetch_all=True)
-    funcionarios = {f['nome']: {'nome': f['nome'], 'valor_hora': f['salario_hora']} for f in funcionarios_list}
-    
-    return render_template('calculo_avulso.html', funcionarios=funcionarios, resultado=resultado)
-
-@app.route('/api/verificar_lancamento', methods=['POST'])
-def verificar_lancamento():
-    """API para verificar se já existe lançamento para funcionário e data"""
-    try:
-        data = request.get_json()
-        funcionario_nome = data.get('funcionario')
-        data_registro = data.get('data')
-        
-        if not funcionario_nome or not data_registro:
-            return jsonify({'erro': 'Funcionário e data são obrigatórios'}), 400
-            
-        # Buscar funcionário
-        query = "SELECT id FROM funcionarios WHERE nome = ?"
-        funcionario = DatabaseManager.execute_query(query, (funcionario_nome,), fetch_one=True)
-        
-        if not funcionario:
-            return jsonify({'erro': 'Funcionário não encontrado'}), 404
-            
-        # Verificar se já existe lançamento
-        query_verificacao = """
-            SELECT id, hora_entrada, hora_saida, horas_trabalhadas, data_registro
-            FROM registros_ponto 
-            WHERE funcionario_id = ? AND data = ?
-        """
-        registro_existente = DatabaseManager.execute_query(query_verificacao, (funcionario['id'], data_registro), fetch_one=True)
-        
-        if registro_existente:
-            return jsonify({
-                'existe': True,
-                'registro': {
-                    'hora_entrada': registro_existente['hora_entrada'],
-                    'hora_saida': registro_existente['hora_saida'],
-                    'horas_trabalhadas': registro_existente['horas_trabalhadas'],
-                    'data_registro': registro_existente['data_registro']
-                }
-            })
-        else:
-            return jsonify({'existe': False})
-            
-    except Exception as e:
-        return jsonify({'erro': str(e)}), 500
-
-
-@app.route('/config_carga', methods=['GET', 'POST'])
-def config_carga():
-    """Página para configurar carga horária de funcionários"""
-    if request.method == 'POST':
-        funcionario_id = request.form.get('funcionario_id')
-        inicio = request.form.get('inicio')  # formato HH:MM
-        fim = request.form.get('fim')
-        dias = request.form.getlist('dias') or request.form.getlist('dias[]')  # lista de dias (ex: Mon,Tue,...)
-        intervalo = request.form.get('intervalo') or 0
-
-        if not funcionario_id or not inicio or not fim or not dias:
-            flash('Todos os campos são obrigatórios', 'warning')
-            return redirect(url_for('config_carga'))
-
-        dias_str = ','.join(dias)
-        query = """
-            INSERT INTO carga_horaria (funcionario_id, inicio, fim, dias_semana, intervalo_min, ativo)
-            VALUES (?, ?, ?, ?, ?, 1)
-        """
-        DatabaseManager.execute_query(query, (funcionario_id, inicio, fim, dias_str, int(intervalo)))
-        flash('Configuração de carga horária salva', 'success')
-        return redirect(url_for('config_carga'))
-
-    # GET
-    funcionarios = DatabaseManager.execute_query("SELECT id, nome FROM funcionarios WHERE ativo = 1 ORDER BY nome", fetch_all=True)
-    cargas = DatabaseManager.execute_query(
-        "SELECT ch.*, f.nome as funcionario_nome "
-        "FROM carga_horaria ch "
-        "LEFT JOIN funcionarios f ON ch.funcionario_id = f.id "
-        "WHERE ch.ativo = 1 "
-        "ORDER BY f.nome",
-        fetch_all=True
-    )
-    return render_template('config_carga.html', funcionarios=funcionarios, cargas=cargas)
-
-
-@app.route('/config_carga/delete/<int:carga_id>', methods=['POST'])
-def config_carga_delete(carga_id):
-    DatabaseManager.execute_query("UPDATE carga_horaria SET ativo = 0 WHERE id = ?", (carga_id,))
-    flash('Configuração removida', 'success')
-    return redirect(url_for('config_carga'))
-
-
-@app.route('/api/get_carga', methods=['POST'])
-def api_get_carga():
-    """Retorna configuração de carga aplicável para um funcionário em uma data específica"""
-    try:
-        data = request.get_json()
-        funcionario_nome = data.get('funcionario')
-        data_str = data.get('data')
-        if not funcionario_nome or not data_str:
-            return jsonify({'error': 'Parâmetros ausentes'}), 400
-
-        # Buscar funcionário
-        query = "SELECT id FROM funcionarios WHERE nome = ?"
-        funcionario = DatabaseManager.execute_query(query, (funcionario_nome,), fetch_one=True)
-        if not funcionario:
-            return jsonify({'error': 'Funcionario não encontrado'}), 404
-
-        # Buscar carga ativa
-        query2 = "SELECT * FROM carga_horaria WHERE funcionario_id = ? AND ativo = 1"
-        carga = DatabaseManager.execute_query(query2, (funcionario['id'],), fetch_one=True)
-
-        if not carga:
-            return jsonify({'aplicavel': False})
-
-        # Determinar se a carga é aplicável ao dia
-        from datetime import datetime
-        dias_map = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        data_obj = datetime.strptime(data_str, '%Y-%m-%d').date()
-        dia_tag = dias_map[data_obj.weekday()]
-        dias_semana = carga['dias_semana'].split(',') if carga.get('dias_semana') else []
-        aplicavel = dia_tag in dias_semana
-
-        # Calcular horas esperadas
-        horas_esperadas = None
-        if aplicavel:
-            inicio_dt = datetime.strptime(f"{data_str} {carga['inicio']}", "%Y-%m-%d %H:%M")
-            fim_dt = datetime.strptime(f"{data_str} {carga['fim']}", "%Y-%m-%d %H:%M")
-            intervalo_h = (carga.get('intervalo_min') or 0) / 60.0
-            horas_esperadas = (fim_dt - inicio_dt).total_seconds() / 3600 - intervalo_h
-
-        return jsonify({
-            'aplicavel': aplicavel,
-            'intervalo_min': carga.get('intervalo_min', 0),
-            'horas_esperadas': horas_esperadas
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 
 def initialize_carga_table():
     """Cria a tabela `carga_horaria` se não existir"""
@@ -1337,15 +1156,21 @@ def initialize_carga_table():
     """
     DatabaseManager.execute_query(query)
 
-# Evitar operações de escrita durante o import em ambientes serverless.
-# Em vez disso, inicializar o DB no primeiro request quando apropriado.
-@app.before_first_request
-def ensure_db():
-    # Se SKIP_DB_INIT estiver definido como '1', não execute inicializações (útil durante build)
+
+# Inicialização segura do DB em ambientes serverless:
+# - Evita operações de escrita durante o import
+# - Executa a inicialização apenas no primeiro request da instância
+@app.before_request
+def ensure_db_on_first_request():
+    # Permite pular inicialização via env var (útil durante build)
     if os.environ.get('SKIP_DB_INIT') == '1':
         return
 
-    # Garantir que o diretório do DB exista (por exemplo /tmp)
+    # Executar apenas uma vez por processo/instância
+    if getattr(app, '_db_initialized', False):
+        return
+
+    # Garantir diretório do DB (se DB_FILE tiver caminho)
     db_dir = os.path.dirname(DB_FILE)
     if db_dir and not os.path.exists(db_dir):
         try:
@@ -1353,22 +1178,25 @@ def ensure_db():
         except Exception:
             pass
 
-    # Criar tabelas básicas se necessário
+    # Rodar inicializações necessárias sem quebrar o request
     try:
         initialize_carga_table()
-        # Aqui você pode chamar outras rotinas de migração/criação de tabela, se necessário
+        # adicionar outras inicializações necessárias aqui, se houver
     except Exception:
-        # Não falhar no startup por causa de problemas de criação de tabela
+        # não interromper o request por erro de inicialização
         pass
+    finally:
+        app._db_initialized = True
+
 
 if __name__ == '__main__':
-    # Verificar se o banco existe (modo local)
+    # Verificar se o banco existe
     if not os.path.exists(DB_FILE):
         print("[AVISO] Banco SQLite não encontrado!")
         print("        Execute: python migrar_para_sqlite.py")
-        # Não exit here to allow local auto-creation if desired
+        exit(1)
 
-    # Garantir que a tabela de configuração de carga horária exista em modo local
+    # Garantir que a tabela de configuração de carga horária exista
     initialize_carga_table()
     
     print("[INFO] Usando banco SQLite: " + DB_FILE)
