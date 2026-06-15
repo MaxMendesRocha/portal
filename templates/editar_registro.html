@@ -48,8 +48,8 @@
                                 <label for="hora_saida_almoco" class="form-label">
                                     <i class="fas fa-utensils text-warning me-2"></i>Saída para Almoço *
                                 </label>
-                                <input type="time" class="form-control" id="hora_saida_almoco" name="hora_saida_almoco" 
-                                       value="{{ registro.hora_saida_almoco }}" required>
+                                    <input type="time" class="form-control" id="hora_saida_almoco" name="hora_saida_almoco" 
+                                        value="{{ registro.hora_saida_almoco }}">
                             </div>
                         </div>
                     </div>
@@ -60,8 +60,8 @@
                                 <label for="hora_volta_almoco" class="form-label">
                                     <i class="fas fa-arrow-left text-info me-2"></i>Volta do Almoço *
                                 </label>
-                                <input type="time" class="form-control" id="hora_volta_almoco" name="hora_volta_almoco" 
-                                       value="{{ registro.hora_volta_almoco }}" required>
+                                    <input type="time" class="form-control" id="hora_volta_almoco" name="hora_volta_almoco" 
+                                        value="{{ registro.hora_volta_almoco }}">
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -202,6 +202,48 @@ document.addEventListener('DOMContentLoaded', function() {
     saidaAlmocoInput.addEventListener('change', calcularPrevia);
     voltaAlmocoInput.addEventListener('change', calcularPrevia);
     saidaInput.addEventListener('change', calcularPrevia);
+    
+    // Funções para ajustar formulário conforme carga do funcionário
+    async function fetchCarga(funcionarioNome, data) {
+        if (!funcionarioNome || !data) return null;
+        try {
+            const res = await fetch('/api/get_carga', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({funcionario: funcionarioNome, data: data})
+            });
+            return await res.json();
+        } catch (e) {
+            console.error('Erro ao buscar carga:', e);
+            return null;
+        }
+    }
+
+    async function ajustarFormularioPorCarga() {
+        const funcionario = document.getElementById('funcionario').value;
+        const data = document.getElementById('data').value;
+        const carga = await fetchCarga(funcionario, data);
+        let usarSemIntervalo = false;
+        const camposAlmoco = [saidaAlmocoInput.closest('.mb-3'), voltaAlmocoInput.closest('.mb-3')];
+        if (carga && carga.aplicavel && (carga.intervalo_min || 0) === 0) usarSemIntervalo = true;
+        camposAlmoco.forEach(el => {
+            if (el) {
+                if (usarSemIntervalo) {
+                    el.style.display = 'none';
+                    const inp = el.querySelector('input'); if (inp) { inp.required = false; inp.value = ''; }
+                } else {
+                    el.style.display = '';
+                    const inp = el.querySelector('input'); if (inp) inp.required = true;
+                }
+            }
+        });
+        calcularPrevia();
+    }
+
+    document.getElementById('funcionario').addEventListener('change', ajustarFormularioPorCarga);
+    document.getElementById('data').addEventListener('change', ajustarFormularioPorCarga);
+    // Ajustar no carregamento inicial
+    ajustarFormularioPorCarga();
 });
 </script>
 {% endblock %}

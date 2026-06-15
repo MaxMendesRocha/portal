@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from datetime import datetime, timedelta
 import sqlite3
 import os
+import json
 
 app = Flask(__name__)
 app.secret_key = 'sua_chave_secreta_aqui'
@@ -138,6 +139,79 @@ def calcular_horas_extras(horas_trabalhadas, horas_normais=8):
     if horas_trabalhadas > horas_normais:
         return horas_trabalhadas - horas_normais
     return 0
+
+
+def obter_horas_normais_esperadas(funcionario_id, data_str):
+    """Retorna as horas normais esperadas para um funcionário em uma data.
+    Ordem de preferência:
+    - `carga_horaria` ativa e aplicável ao dia
+    - `funcionarios.horas_mensais / 25` (aproximação de dias úteis no mês)
+    - fallback: 8
+    """
+    from datetime import datetime
+
+    try:
+        # checar carga horaria específica
+        query = "SELECT * FROM carga_horaria WHERE funcionario_id = ? AND ativo = 1"
+        carga = DatabaseManager.execute_query(query, (funcionario_id,), fetch_one=True)
+        if carga:
+            dias_map = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            data_obj = datetime.strptime(data_str, '%Y-%m-%d').date()
+            dia_tag = dias_map[data_obj.weekday()]
+            dias_semana = carga['dias_semana'].split(',') if carga.get('dias_semana') else []
+            if dia_tag in dias_semana:
+                inicio_dt = datetime.strptime(f"{data_str} {carga['inicio']}", "%Y-%m-%d %H:%M")
+                fim_dt = datetime.strptime(f"{data_str} {carga['fim']}", "%Y-%m-%d %H:%M")
+                intervalo_h = (carga.get('intervalo_min') or 0) / 60.0
+                return (fim_dt - inicio_dt).total_seconds() / 3600 - intervalo_h
+
+        # fallback para horas mensais do funcionário (dividir por 25 dias úteis)
+        q2 = "SELECT horas_mensais FROM funcionarios WHERE id = ?"
+        f = DatabaseManager.execute_query(q2, (funcionario_id,), fetch_one=True)
+        if f and f.get('horas_mensais'):
+            try:
+                horas_mensais = float(f['horas_mensais'])
+                return horas_mensais / 25.0
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    return 8
+
+
+def is_feriado(data_obj):
+    """Verifica se a data é um feriado. Procura arquivo 'feriados.json' com lista de 'YYYY-MM-DD'."""
+    try:
+        if not os.path.exists('feriados.json'):
+            return False
+        with open('feriados.json', 'r', encoding='utf-8') as f:
+            feriados = json.load(f)
+        # aceitar lista de strings
+        data_str = data_obj.strftime('%Y-%m-%d')
+        return data_str in feriados
+    except Exception:
+        return False
+
+def extra_multiplier_for_date(data_input):
+    """Retorna o multiplicador de adicional para a data.
+    - Sábado/Domingo ou feriado: 2.0 (100% adicional)
+    - Outros dias: 1.5 (50% adicional)
+    Aceita `datetime.date` ou string 'YYYY-MM-DD'.
+    """
+    from datetime import datetime, date
+
+    if isinstance(data_input, str):
+        data_obj = datetime.strptime(data_input, '%Y-%m-%d').date()
+    elif isinstance(data_input, date):
+        data_obj = data_input
+    else:
+        data_obj = data_input.date()
+
+    # weekday(): 0=Mon .. 6=Sun
+    if data_obj.weekday() >= 5 or is_feriado(data_obj):
+        return 2.0
+    return 1.5
 
 def calcular_total_mensal_fechamento(funcionario_id, mes_fechamento, ano_fechamento):
     """
@@ -427,10 +501,10 @@ def registrar_horas():
     if request.method == 'POST':
         funcionario_nome = request.form['funcionario']
         data = request.form['data']
-        hora_entrada = request.form['hora_entrada']
-        hora_saida_almoco = request.form['hora_saida_almoco']
-        hora_volta_almoco = request.form['hora_volta_almoco']
-        hora_saida = request.form['hora_saida']
+        hora_entrada = request.form.get('hora_entrada')
+        hora_saida_almoco = request.form.get('hora_saida_almoco')
+        hora_volta_almoco = request.form.get('hora_volta_almoco')
+        hora_saida = request.form.get('hora_saida')
         
         # Buscar funcionário
         query = "SELECT id FROM funcionarios WHERE nome = ?"
@@ -440,26 +514,69 @@ def registrar_horas():
             flash('Funcionário não encontrado!', 'error')
             return redirect(url_for('registrar_horas'))
         
-        # Converter para datetime para calcular horas
+        # Converter para datetime e determinar se existe configuração de carga
         entrada = datetime.strptime(f"{data} {hora_entrada}", "%Y-%m-%d %H:%M")
-        saida_almoco = datetime.strptime(f"{data} {hora_saida_almoco}", "%Y-%m-%d %H:%M")
-        volta_almoco = datetime.strptime(f"{data} {hora_volta_almoco}", "%Y-%m-%d %H:%M")
         saida = datetime.strptime(f"{data} {hora_saida}", "%Y-%m-%d %H:%M")
-        
-        # Calcular horas trabalhadas (descontando o almoço)
-        periodo_manha = saida_almoco - entrada
-        periodo_tarde = saida - volta_almoco
-        
-        horas_manha = periodo_manha.total_seconds() / 3600
-        horas_tarde = periodo_tarde.total_seconds() / 3600
-        horas_trabalhadas = horas_manha + horas_tarde
-        
-        # Calcular tempo de almoço
-        tempo_almoco = volta_almoco - saida_almoco
-        tempo_almoco_horas = tempo_almoco.total_seconds() / 3600
-        
-        # Calcular horas extras (manter precisão máxima antes do arredondamento final)
-        horas_extras = calcular_horas_extras(horas_trabalhadas)
+
+        # Buscar configuração de carga horária do funcionário (se houver)
+        query_carga = "SELECT * FROM carga_horaria WHERE funcionario_id = ? AND ativo = 1"
+        carga = DatabaseManager.execute_query(query_carga, (funcionario['id'],), fetch_one=True)
+
+        # Determinar horas normais esperadas para o dia
+        horas_normais_esperadas = 8
+        carga_aplicavel = False
+        if carga:
+            # verificar se a data pertence aos dias configurados
+            dias_map = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            data_obj = datetime.strptime(data, '%Y-%m-%d').date()
+            dia_tag = dias_map[data_obj.weekday()]
+            dias_semana = carga['dias_semana'].split(',') if carga.get('dias_semana') else []
+            if dia_tag in dias_semana:
+                carga_aplicavel = True
+                inicio_dt = datetime.strptime(f"{data} {carga['inicio']}", "%Y-%m-%d %H:%M")
+                fim_dt = datetime.strptime(f"{data} {carga['fim']}", "%Y-%m-%d %H:%M")
+                intervalo_h = (carga.get('intervalo_min') or 0) / 60.0
+                horas_normais_esperadas = (fim_dt - inicio_dt).total_seconds() / 3600 - intervalo_h
+
+        # Calcular horas trabalhadas e tempo de almoço dependendo se há intervalo cadastrado
+        if carga_aplicavel and (carga.get('intervalo_min') or 0) == 0:
+            # Sem intervalo cadastrado: considerar apenas entrada->saída
+            horas_trabalhadas = (saida - entrada).total_seconds() / 3600
+            tempo_almoco_horas = 0
+            # garantir valores para campos opcionais
+            hora_saida_almoco = hora_saida_almoco or ''
+            hora_volta_almoco = hora_volta_almoco or ''
+        else:
+            # Espera-se campos de almoço; se estiverem ausentes, tratar como 0
+            try:
+                saida_almoco = datetime.strptime(f"{data} {hora_saida_almoco}", "%Y-%m-%d %H:%M") if hora_saida_almoco else None
+                volta_almoco = datetime.strptime(f"{data} {hora_volta_almoco}", "%Y-%m-%d %H:%M") if hora_volta_almoco else None
+            except Exception:
+                flash('Formato de horário inválido para intervalo.', 'error')
+                return redirect(url_for('registrar_horas'))
+
+            if saida_almoco and volta_almoco:
+                periodo_manha = saida_almoco - entrada
+                periodo_tarde = saida - volta_almoco
+                horas_manha = periodo_manha.total_seconds() / 3600
+                horas_tarde = periodo_tarde.total_seconds() / 3600
+                horas_trabalhadas = horas_manha + horas_tarde
+                tempo_almoco_horas = (volta_almoco - saida_almoco).total_seconds() / 3600
+            else:
+                # Falha segura: considerar entrada->saída sem desconto de almoço
+                horas_trabalhadas = (saida - entrada).total_seconds() / 3600
+                tempo_almoco_horas = 0
+
+        # Calcular horas extras seguindo as regras:
+        # - Se for sábado, domingo ou feriado: todas as horas são consideradas extras (100% adicional)
+        # - Caso contrário: apenas o excedente sobre a carga esperada (ou 8h) é extra
+        data_obj = datetime.strptime(data, '%Y-%m-%d').date()
+        # Se for fim de semana ou feriado, todas as horas são extras.
+        # Caso contrário, calcular extras sobre a carga esperada (ou 8h padrão).
+        if data_obj.weekday() >= 5 or is_feriado(data_obj):
+            horas_extras = horas_trabalhadas
+        else:
+            horas_extras = calcular_horas_extras(horas_trabalhadas, horas_normais_esperadas)
         
         # VALIDAÇÃO: Verificar se já existe lançamento para esta data e funcionário
         query_verificacao = """
@@ -531,16 +648,40 @@ def relatorio_mensal(funcionario_nome, mes, ano):
     
     # Calcular totais usando a nova função de fechamento
     total_mensal = calcular_total_mensal_fechamento(funcionario_data['id'], mes, ano)
-    
-    # Calcular valores monetários
+
+    # Calcular valores monetários por registro, usando multiplicador correto por data
     valor_horas_normais = 0
     valor_horas_extras = 0
-    
-    salario_hora = funcionario_data['salario_hora']
+
+    salario_hora = funcionario_data.get('salario_hora') or 0
+    # Ensure registros_mes is a list of dicts we can modify
+    registros_preparados = []
     for registro in registros_mes:
-        horas_normais = min(registro['horas_trabalhadas'], 8)
-        valor_horas_normais += horas_normais * salario_hora
-        valor_horas_extras += registro['horas_extras'] * salario_hora * 1.5  # 50% adicional
+        # Determinar multiplicador para a data (1.5 em dia útil, 2.0 em final de semana/feriado)
+        mult = extra_multiplier_for_date(registro['data'])
+
+        horas_trabalhadas_reg = float(registro.get('horas_trabalhadas') or 0)
+        horas_extras_reg = float(registro.get('horas_extras') or 0)
+
+        # Se for fim de semana/feriado (multiplicador 2.0), considerar todas as horas como adicionais
+        # e não somar horas normais para evitar dupla contagem.
+        if mult == 2.0:
+            valor_horas_extras += horas_trabalhadas_reg * salario_hora * mult
+        else:
+            horas_esperadas = obter_horas_normais_esperadas(funcionario_data['id'], registro['data'])
+            horas_normais = min(horas_trabalhadas_reg, horas_esperadas)
+            valor_horas_normais += horas_normais * salario_hora
+            # Horas extras registradas são pagas com o multiplicador apropriado (ex.: 1.5)
+            valor_horas_extras += horas_extras_reg * salario_hora * mult
+
+        # Anexar metadados para o template: percentual e multiplicador
+        reg = dict(registro)
+        reg['multiplier'] = mult
+        reg['percentual'] = '100%' if mult == 2.0 else '50%'
+        registros_preparados.append(reg)
+
+    # Substituir registros_mes por versão preparada
+    registros_mes = registros_preparados
     
     meses_nomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -551,7 +692,21 @@ def relatorio_mensal(funcionario_nome, mes, ano):
         'data_fim': data_fim.strftime('%d/%m/%Y'),
         'descricao': f"Período: {data_inicio.strftime('%d/%m/%Y')} a {data_fim.strftime('%d/%m/%Y')}"
     }
-    
+
+    # Achados automatizados sobre a lógica de cálculo de horas extras
+    confirmados = [
+        'Horas extras calculadas como max(0, horas_trabalhadas - horas_normais) via calcular_horas_extras()',
+        'Adicional padrão: 50% em dias úteis; 100% em finais de semana/feriados via extra_multiplier_for_date()',
+        'Em finais de semana/feriados todas as horas do registro são tratadas como extras (multiplicador 2.0)'
+    ]
+
+    incertos = [
+        'Horas normais por dia usam valor padrão 8h — pode variar por funcionário (horas_mensais)',
+        'Arredondamento de horas para 2 casas decimais pode causar pequenas diferenças de minutos',
+        'Detecção de feriados depende de feriados.json — formato/ausência pode impactar o resultado',
+        'Registros sem intervalo de almoço explícito podem gerar interpretação ambígua do cálculo'
+    ]
+
     return render_template('relatorio_mensal.html',
                          funcionario=funcionario_nome,
                          mes=mes,
@@ -562,7 +717,9 @@ def relatorio_mensal(funcionario_nome, mes, ano):
                          funcionario_data=funcionario_data,
                          valor_horas_normais=valor_horas_normais,
                          valor_horas_extras=valor_horas_extras,
-                         periodo=periodo_info)
+                         periodo=periodo_info,
+                         achados_confirmados=confirmados,
+                         achados_incertos=incertos)
 
 @app.route('/editar_funcionario/<nome>', methods=['GET', 'POST'])
 def editar_funcionario(nome):
@@ -1036,12 +1193,119 @@ def verificar_lancamento():
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
 
+
+@app.route('/config_carga', methods=['GET', 'POST'])
+def config_carga():
+    """Página para configurar carga horária de funcionários"""
+    if request.method == 'POST':
+        funcionario_id = request.form.get('funcionario_id')
+        inicio = request.form.get('inicio')  # formato HH:MM
+        fim = request.form.get('fim')
+        dias = request.form.getlist('dias') or request.form.getlist('dias[]')  # lista de dias (ex: Mon,Tue,...)
+        intervalo = request.form.get('intervalo') or 0
+
+        if not funcionario_id or not inicio or not fim or not dias:
+            flash('Todos os campos são obrigatórios', 'warning')
+            return redirect(url_for('config_carga'))
+
+        dias_str = ','.join(dias)
+        query = """
+            INSERT INTO carga_horaria (funcionario_id, inicio, fim, dias_semana, intervalo_min, ativo)
+            VALUES (?, ?, ?, ?, ?, 1)
+        """
+        DatabaseManager.execute_query(query, (funcionario_id, inicio, fim, dias_str, int(intervalo)))
+        flash('Configuração de carga horária salva', 'success')
+        return redirect(url_for('config_carga'))
+
+    # GET
+    funcionarios = DatabaseManager.execute_query("SELECT id, nome FROM funcionarios WHERE ativo = 1 ORDER BY nome", fetch_all=True)
+    cargas = DatabaseManager.execute_query("SELECT ch.*, f.nome as funcionario_nome FROM carga_horaria ch LEFT JOIN funcionarios f ON ch.funcionario_id = f.id WHERE ch.ativo = 1 ORDER BY f.nome", fetch_all=True)
+    return render_template('config_carga.html', funcionarios=funcionarios, cargas=cargas)
+
+
+@app.route('/config_carga/delete/<int:carga_id>', methods=['POST'])
+def config_carga_delete(carga_id):
+    DatabaseManager.execute_query("UPDATE carga_horaria SET ativo = 0 WHERE id = ?", (carga_id,))
+    flash('Configuração removida', 'success')
+    return redirect(url_for('config_carga'))
+
+
+@app.route('/api/get_carga', methods=['POST'])
+def api_get_carga():
+    """Retorna configuração de carga aplicável para um funcionário em uma data específica"""
+    try:
+        data = request.get_json()
+        funcionario_nome = data.get('funcionario')
+        data_str = data.get('data')
+        if not funcionario_nome or not data_str:
+            return jsonify({'error': 'Parâmetros ausentes'}), 400
+
+        # Buscar funcionário
+        query = "SELECT id FROM funcionarios WHERE nome = ?"
+        funcionario = DatabaseManager.execute_query(query, (funcionario_nome,), fetch_one=True)
+        if not funcionario:
+            return jsonify({'error': 'Funcionario não encontrado'}), 404
+
+        # Buscar carga ativa
+        query2 = "SELECT * FROM carga_horaria WHERE funcionario_id = ? AND ativo = 1"
+        carga = DatabaseManager.execute_query(query2, (funcionario['id'],), fetch_one=True)
+
+        if not carga:
+            return jsonify({'aplicavel': False})
+
+        # Determinar se a carga é aplicável ao dia
+        from datetime import datetime
+        dias_map = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        data_obj = datetime.strptime(data_str, '%Y-%m-%d').date()
+        dia_tag = dias_map[data_obj.weekday()]
+        dias_semana = carga['dias_semana'].split(',') if carga.get('dias_semana') else []
+        aplicavel = dia_tag in dias_semana
+
+        # Calcular horas esperadas
+        horas_esperadas = None
+        if aplicavel:
+            inicio_dt = datetime.strptime(f"{data_str} {carga['inicio']}", "%Y-%m-%d %H:%M")
+            fim_dt = datetime.strptime(f"{data_str} {carga['fim']}", "%Y-%m-%d %H:%M")
+            intervalo_h = (carga.get('intervalo_min') or 0) / 60.0
+            horas_esperadas = (fim_dt - inicio_dt).total_seconds() / 3600 - intervalo_h
+
+        return jsonify({
+            'aplicavel': aplicavel,
+            'intervalo_min': carga.get('intervalo_min', 0),
+            'horas_esperadas': horas_esperadas
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def initialize_carga_table():
+    """Cria a tabela `carga_horaria` se não existir"""
+    query = """
+    CREATE TABLE IF NOT EXISTS carga_horaria (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        funcionario_id INTEGER NOT NULL,
+        inicio TEXT NOT NULL,
+        fim TEXT NOT NULL,
+        dias_semana TEXT NOT NULL,
+        intervalo_min INTEGER DEFAULT 0,
+        ativo INTEGER DEFAULT 1,
+        FOREIGN KEY(funcionario_id) REFERENCES funcionarios(id)
+    );
+    """
+    DatabaseManager.execute_query(query)
+
+# Garantir que a tabela exista independentemente da forma como o app for carregado
+initialize_carga_table()
+
 if __name__ == '__main__':
     # Verificar se o banco existe
     if not os.path.exists(DB_FILE):
-        print("⚠️  Banco SQLite não encontrado!")
-        print("   Execute: python migrar_para_sqlite.py")
+        print("[AVISO] Banco SQLite não encontrado!")
+        print("        Execute: python migrar_para_sqlite.py")
         exit(1)
+
+    # Garantir que a tabela de configuração de carga horária exista
+    initialize_carga_table()
     
-    print("🗄️  Usando banco SQLite: " + DB_FILE)
+    print("[INFO] Usando banco SQLite: " + DB_FILE)
     app.run(debug=True, host='0.0.0.0', port=5001)

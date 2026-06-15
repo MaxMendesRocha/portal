@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Configurar Carga Horária{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Configurar Carga Horária</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Funcionário</label>
+                        <select name="funcionario_id" class="form-select" required>
+                            <option value="">Selecione</option>
+                            {% for f in funcionarios %}
+                            <option value="{{ f.id }}">{{ f.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="alert alert-secondary py-2">
+                        Exemplo: colaborar trabalha das <strong>13:15</strong> às <strong>18:15</strong> sem intervalo, de <strong>segunda a sexta</strong>.
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Início</label>
+                            <input type="time" name="inicio" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Fim</label>
+                            <input type="time" name="fim" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Dias da semana</label>
+                        <div>
+                            {% for d,label in [('Mon','Seg'),('Tue','Ter'),('Wed','Qua'),('Thu','Qui'),('Fri','Sex'),('Sat','Sáb'),('Sun','Dom')] %}
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="dias[]" value="{{ d }}" id="d_{{ d }}">
+                                <label class="form-check-label" for="d_{{ d }}">{{ label }}</label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Intervalo (minutos)</label>
+                        <input type="number" name="intervalo" class="form-control" min="0" value="0">
+                    </div>
+
+                    <button class="btn btn-primary">Salvar</button>
+                </form>
+            </div>
+        </div>
+
+        {% if cargas %}
+        <div class="card shadow mt-3">
+            <div class="card-header">Configurações Ativas</div>
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                        <tr><th>Funcionário</th><th>Início</th><th>Fim</th><th>Dias</th><th>Intervalo</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {% for c in cargas %}
+                        <tr>
+                            <td>{{ c.funcionario_nome or '—' }}</td>
+                            <td>{{ c.inicio }}</td>
+                            <td>{{ c.fim }}</td>
+                            <td>{{ c.dias_semana }}</td>
+                            <td>{{ c.intervalo_min }} min</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('config_carga_delete', carga_id=c.id) }}" onsubmit="return confirm('Remover configuração?');">
+                                    <button class="btn btn-sm btn-danger">Remover</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

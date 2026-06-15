@@ -113,6 +113,39 @@
 </div>
 {% endif %}
 
+{% if achados_confirmados or achados_incertos %}
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card border-success h-100">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0">Achados 100% Confirmados</h6>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    {% for item in achados_confirmados %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card border-warning h-100">
+            <div class="card-header bg-warning text-dark">
+                <h6 class="mb-0">Achados ~50% (Incerto / Requer Verificação)</h6>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    {% for item in achados_incertos %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% if registros %}
 <div class="row">
     <div class="col-12">
@@ -135,6 +168,7 @@
                                 <th><i class="fas fa-sign-out-alt me-2"></i>Saída</th>
                                 <th><i class="fas fa-clock me-2"></i>Total</th>
                                 <th><i class="fas fa-plus-circle me-2"></i>Extras</th>
+                                <th><i class="fas fa-percent me-2"></i>Percentual</th>
                                 {% if funcionario_data and funcionario_data.salario_hora %}
                                 <th><i class="fas fa-dollar-sign me-2"></i>Valor Dia</th>
                                 {% endif %}
@@ -184,10 +218,18 @@
                                         <span class="text-muted">-</span>
                                     {% endif %}
                                 </td>
+                                <td>
+                                    {% if registro.horas_extras > 0 %}
+                                        <span class="badge bg-secondary">{{ registro.percentual if registro.percentual is defined else '50%' }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
                                 {% if funcionario_data and funcionario_data.salario_hora %}
                                 <td>
                                     {% set horas_normais_dia = (registro.horas_trabalhadas - registro.horas_extras) %}
-                                    {% set valor_dia = (horas_normais_dia * funcionario_data.salario_hora) + (registro.horas_extras * funcionario_data.salario_hora * 1.5) %}
+                                    {% set mult = registro.multiplier if registro.multiplier is defined else 1.5 %}
+                                    {% set valor_dia = (horas_normais_dia * funcionario_data.salario_hora) + (registro.horas_extras * funcionario_data.salario_hora * mult) %}
                                     <strong class="text-success">R$ {{ "%.2f"|format(valor_dia) }}</strong>
                                 </td>
                                 {% endif %}

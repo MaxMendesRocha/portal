@@ -66,6 +66,67 @@ def calcular_horas_extras(horas_trabalhadas, horas_normais=8):
         return horas_trabalhadas - horas_normais
     return 0
 
+
+def is_feriado(data_obj):
+    """Verifica se a data é um feriado lendo 'feriados.json' (lista de 'YYYY-MM-DD')."""
+    try:
+        if not os.path.exists('feriados.json'):
+            return False
+        import json
+        with open('feriados.json', 'r', encoding='utf-8') as f:
+            feriados = json.load(f)
+        data_str = data_obj.strftime('%Y-%m-%d')
+        return data_str in feriados
+    except Exception:
+        return False
+
+
+def extra_multiplier_for_date(data_input):
+    """Retorna multiplicador: 2.0 para sáb/dom/feriado, 1.5 caso contrário."""
+    from datetime import datetime, date
+    if isinstance(data_input, str):
+        data_obj = datetime.strptime(data_input, '%Y-%m-%d').date()
+    elif isinstance(data_input, date):
+        data_obj = data_input
+    else:
+        data_obj = data_input.date()
+
+    if data_obj.weekday() >= 5 or is_feriado(data_obj):
+        return 2.0
+    return 1.5
+
+
+def obter_horas_normais_esperadas(funcionario_id, data_str):
+    """Retorna as horas normais esperadas para um funcionário em uma data.
+    Prioriza `carga_horaria` ativa, depois `funcionarios.horas_mensais/25`, fallback 8h.
+    """
+    try:
+        query = "SELECT * FROM carga_horaria WHERE funcionario_id = ? AND ativo = 1"
+        carga = DatabaseManager.execute_query(query, (funcionario_id,), fetch_one=True)
+        if carga:
+            dias_map = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            from datetime import datetime
+            data_obj = datetime.strptime(data_str, '%Y-%m-%d').date()
+            dia_tag = dias_map[data_obj.weekday()]
+            dias_semana = carga['dias_semana'].split(',') if carga.get('dias_semana') else []
+            if dia_tag in dias_semana:
+                inicio_dt = datetime.strptime(f"{data_str} {carga['inicio']}", "%Y-%m-%d %H:%M")
+                fim_dt = datetime.strptime(f"{data_str} {carga['fim']}", "%Y-%m-%d %H:%M")
+                intervalo_h = (carga.get('intervalo_min') or 0) / 60.0
+                return (fim_dt - inicio_dt).total_seconds() / 3600 - intervalo_h
+
+        q2 = "SELECT horas_mensais FROM funcionarios WHERE id = ?"
+        f = DatabaseManager.execute_query(q2, (funcionario_id,), fetch_one=True)
+        if f and f.get('horas_mensais'):
+            try:
+                horas_mensais = float(f['horas_mensais'])
+                return horas_mensais / 25.0
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return 8
+
 def calcular_total_mensal(funcionario_id, mes, ano):
     """Calcula o total de horas trabalhadas e extras no mês"""
     query = """
@@ -199,9 +260,16 @@ def registrar_horas():
         # Calcular tempo de almoço
         tempo_almoco = volta_almoco - saida_almoco
         tempo_almoco_horas = tempo_almoco.total_seconds() / 3600
-        
-        # Calcular horas extras
-        horas_extras = calcular_horas_extras(horas_trabalhadas)
+
+        # Calcular horas extras usando regras: fim de semana/feriado -> todas as horas
+        # caso contrário, calcular sobre horas esperadas do funcionário
+        horas_esperadas = obter_horas_normais_esperadas(funcionario['id'], data)
+        from datetime import datetime
+        data_obj = datetime.strptime(data, '%Y-%m-%d').date()
+        if data_obj.weekday() >= 5 or is_feriado(data_obj):
+            horas_extras = horas_trabalhadas
+        else:
+            horas_extras = calcular_horas_extras(horas_trabalhadas, horas_esperadas)
         
         try:
             # Inserir registro
@@ -260,9 +328,14 @@ def relatorio_mensal(funcionario_nome, mes, ano):
     
     salario_hora = funcionario_data['salario_hora']
     for registro in registros_mes:
-        horas_normais = min(registro['horas_trabalhadas'], 8)
-        valor_horas_normais += horas_normais * salario_hora
-        valor_horas_extras += registro['horas_extras'] * salario_hora * 1.5  # 50% adicional
+        mult = extra_multiplier_for_date(registro['data'])
+        if mult == 2.0:
+            valor_horas_extras += registro['horas_trabalhadas'] * salario_hora * mult
+        else:
+            horas_esperadas = obter_horas_normais_esperadas(funcionario_data['id'], registro['data'])
+            horas_normais = min(registro['horas_trabalhadas'], horas_esperadas)
+            valor_horas_normais += horas_normais * salario_hora
+            valor_horas_extras += registro['horas_extras'] * salario_hora * mult
     
     meses_nomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -355,7 +428,14 @@ def editar_registro(registro_id):
         tempo_almoco = volta_almoco - saida_almoco
         tempo_almoco_horas = tempo_almoco.total_seconds() / 3600
         
-        horas_extras = calcular_horas_extras(horas_trabalhadas)
+        # Recalcular horas extras aplicando mesma regra usada no registro
+        horas_esperadas = obter_horas_normais_esperadas(registro['funcionario_id'], data)
+        from datetime import datetime
+        data_obj = datetime.strptime(data, '%Y-%m-%d').date()
+        if data_obj.weekday() >= 5 or is_feriado(data_obj):
+            horas_extras = horas_trabalhadas
+        else:
+            horas_extras = calcular_horas_extras(horas_trabalhadas, horas_esperadas)
         
         # Atualizar registro
         query = """

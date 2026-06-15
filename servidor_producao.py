@@ -75,10 +75,10 @@ def iniciar_servidor_producao():
         
         # Configurar aplicação para produção
         app.config['ENV'] = 'production'
-        app.config['DEBUG'] = False
+        app.config['DEBUG'] = True
         
         # Iniciar servidor Flask
-        app.run(host='0.0.0.0', port=porta, threaded=True, debug=False)
+        app.run(host='0.0.0.0', port=porta, threaded=True, debug=True)
         
     except KeyboardInterrupt:
         print("\n\n🛑 Servidor interrompido pelo usuário")
