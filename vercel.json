@@ -1,21 +1,15 @@
 {
-  "builds": [
-    {
-      "src": "app.py",
-      "use": "@vercel/python"
+  "functions": {
+    "app.py": {
+      "runtime": "python3.12"
     }
-  ],
+  },
   "routes": [
     {
       "src": "/(.*)",
       "dest": "/app.py"
     }
   ],
-  "functions": {
-    "app.py": {
-      "runtime": "python3.12"
-    }
-  },
   "env": {
     "SKIP_DB_INIT": "1"
   }
