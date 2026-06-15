@@ -463,6 +463,21 @@ def visualizar_funcionario(nome, page=1):
                          funcionario_data=funcionario_data,
                          pagination=pagination_info)
 
+
+@app.route('/funcionario/id/<int:funcionario_id>')
+@app.route('/funcionario/id/<int:funcionario_id>/page/<int:page>')
+def visualizar_funcionario_por_id(funcionario_id, page=1):
+    """Visualiza funcionário por ID — evita problemas de encoding em nomes na URL"""
+    query = "SELECT * FROM funcionarios WHERE id = ? AND ativo = 1"
+    funcionario_data = DatabaseManager.execute_query(query, (funcionario_id,), fetch_one=True)
+
+    if not funcionario_data:
+        flash('Funcionário não encontrado!', 'error')
+        return redirect(url_for('index'))
+
+    # Reuse the existing view logic by calling the name-based view function directly
+    return visualizar_funcionario(funcionario_data['nome'], page)
+
 @app.route('/adicionar_funcionario', methods=['GET', 'POST'])
 def adicionar_funcionario():
     """Adiciona um novo funcionário"""
@@ -609,7 +624,7 @@ def registrar_horas():
             ))
             
             flash(f'✅ Horas registradas com sucesso para {funcionario_nome}! Total: {horas_trabalhadas:.2f}h, Extras: {horas_extras:.2f}h, Almoço: {tempo_almoco_horas:.2f}h', 'success')
-            return redirect(url_for('visualizar_funcionario', nome=funcionario_nome))
+                return redirect(url_for('visualizar_funcionario_por_id', funcionario_id=funcionario['id']))
             
         except sqlite3.IntegrityError:
             flash(f'❌ Erro de integridade: Já existe registro para {funcionario_nome} na data {data}!', 'error')
